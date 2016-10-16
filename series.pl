@@ -34,7 +34,7 @@ my @s_and_p_series = get_s_and_p_series();
 # Calculate earnings over MONTHS for each starting month.
 my %series = calculate_earnings();
 
-
+# Internal rate of returns for each strategy.
 my @irr_buy_and_hold = ();
 my @irr_timing = ();
 my ($beats_count) = calculate_irr(\@irr_buy_and_hold, \@irr_timing);
@@ -46,90 +46,143 @@ print qq(Buy and Hold stddev: ), sprintf("%0.2f",stddev(@irr_buy_and_hold)), qq(
 print qq(Timing mean: ), sprintf("%0.2f",mean(@irr_timing)), qq(\n);
 print qq(Timing stddev: ), sprintf("%0.2f",stddev(@irr_timing)), qq(\n);
 
+
+# Uses calculated earnings to calculate IRRs for each strategy.
 sub calculate_irr {
     my ($irr_buy_and_hold_ref, $irr_timing_ref) = @_;
 
+    # The number of times the timing strategy beats the buy and hold strategy.
     my $beats_count = 0;
 
   SERIES: foreach my $series (sort {$a cmp $b} keys %series) {
+
+        # Ignore series shorter than our window.
         next SERIES if $series{$series}{'months'}<$MONTHS;
+
+        # For debugging a specific series.
         next SERIES if $series ne $DEBUG_DATE && $DEBUG;
         
+        # Beginning of series.
         my $start_date = $series;
+
+        # End of series.
         my $end_date = $series{$start_date}{'end_date'};
+
+        # First market price.
         my $start_price = $series{$start_date}{'start_price'};
+
+        # Last market price.
         my $end_price = $series{$start_date}{'end_price'};
+
+        # The amount we made from dividends.
         my $dividend = $series{$start_date}{'dividend'};
-        my $in_market = $series{$start_date}{'in_market'};
+
+        # How many times we were in the market.
         my $market_count = $series{$start_date}{'market_count'};
         
-        my %buy_cashflow = (
+        # IRR calculation for buy and hold.
+        # Assumes we bought "1 share" of the market at the current price,
+        # Then got cash back at the end price, plus any accrued dividends,
+        # Then took capital gains.
+        my %buy_and_hold_cashflow = (
             $start_date => -$start_price,
             $end_date => ($end_price + $dividend)*$CAPITAL_GAINS
         );
-        my $irr_buy_and_hold = xirr(%buy_cashflow, precision => 0.001) || 0;
+        my $irr_buy_and_hold = xirr(%buy_and_hold_cashflow, precision => 0.001) || 0;
         $irr_buy_and_hold = sprintf("%0.2f",100*$irr_buy_and_hold);
         
-        my $sell_dates = '';
-        my $sell_end_adj = 0;
-        my $last_start_price = $start_price;
+        # For printing out which dates we were in the market.
+        my $sell_dates = ''; 
+
+        # For calculating how much we deviated from buy and hold.
+        my $timing_end_adj = 0; 
+
+        # How much we last exited the market at.
+        my $last_start_price = $start_price; 
+
+        # Each time we entered the market in the timing strategy.
       MARKET: for (my $i=1; $i<=$market_count; $i++) {
-            my $sell_start_date = $series{$start_date}{'market'}{$i}{'start_date'};
-            my $sell_end_date = $series{$start_date}{'market'}{$i}{'end_date'};
-            my $sell_start_price = $series{$start_date}{'market'}{$i}{'start_price'};
-            my $sell_end_price = $series{$start_date}{'market'}{$i}{'end_price'};
-            my $sell_dividend = $series{$start_date}{'market'}{$i}{'dividend'};
+
+            # In market start and end dates and prices.
+            my $timing_start_date = $series{$start_date}{'market'}{$i}{'start_date'};
+            my $timing_end_date = $series{$start_date}{'market'}{$i}{'end_date'};
+            my $timing_start_price = $series{$start_date}{'market'}{$i}{'start_price'};
+            my $timing_end_price = $series{$start_date}{'market'}{$i}{'end_price'};
+
+            # How much we made in dividends when in the market.
+            my $timing_dividend = $series{$start_date}{'market'}{$i}{'dividend'};
             
-            next MARKET if !$sell_end_date;
+            # TK
+            next MARKET if !$timing_end_date;
             
             if ($DEBUG) {
                 print qq(\n);
-                print qq(series_start_date: $start_date\n);
-                print qq(series_start_price: $start_price\n);
-                print qq(sell_start_date: $sell_start_date\n);
-                print qq(sell_end_date: $sell_end_date\n);
+                print qq(timing_start_date: $timing_start_date\n);
+                print qq(timing_end_date: $timing_end_date\n);
                 print qq(last_start_price: $last_start_price\n);
-                print qq(sell_start_price: $sell_start_price\n);
-                print qq(sell_end_price: $sell_end_price\n);
-                print qq(sell_dividend: $sell_dividend\n);
+                print qq(timing_start_price: $timing_start_price\n);
+                print qq(timing_end_price: $timing_end_price\n);
+                print qq(timing_dividend: $timing_dividend\n);
             }
             
-            my $shares = $last_start_price / $sell_start_price;
+            # Because we have windows where we are out of the market, 
+            # the dollars we had when we started or last sold are different
+            # from the current price, so we buy a number of "shares" in the market.
+            my $shares = $last_start_price / $timing_start_price;
             print qq(shares: $shares\n) if $DEBUG;
             
-            my $sell_start_price_adj = $sell_start_price * $shares;
-            my $sell_end_price_adj = $sell_end_price * $shares;
-            my $sell_dividend_adj = $sell_dividend * $shares;
-            my $sell_end_amt = ($sell_end_price_adj+$sell_dividend_adj)*$CAPITAL_GAINS;
+            # We then adkust the prices and dividends based on our share amount.
+            my $timing_start_price_adj = $timing_start_price * $shares;
+            my $timing_end_price_adj = $timing_end_price * $shares;
+            my $timing_dividend_adj = $timing_dividend * $shares;
+
+            # When we sell we get back the adjusted end price,
+            # plus dividends, less capital gains.
+            my $timing_end_amt = ($timing_end_price_adj+$timing_dividend_adj)*$CAPITAL_GAINS;
             
             if ($DEBUG) {
-                print qq(sell_start_price_adj: $sell_start_price_adj\n);
-                print qq(sell_end_price_adj: $sell_end_price_adj\n);
-                print qq(sell_dividend_adj: $sell_dividend_adj\n);
-                print qq(sell_end_amt: $sell_end_amt\n);
+                print qq(timing_start_price_adj: $timing_start_price_adj\n);
+                print qq(timing_end_price_adj: $timing_end_price_adj\n);
+                print qq(timing_dividend_adj: $timing_dividend_adj\n);
+                print qq(timing_end_amt: $timing_end_amt\n);
             }
             
-            $sell_end_adj += $sell_end_amt - $last_start_price;
-            $last_start_price = $sell_end_amt;
-            print qq(sell_end_adj: $sell_end_adj\n) if $DEBUG;
+            # For this round in the market, we actually made
+            # what we ended with minus what we started with.
+            my $timing_adj = $timing_end_amt - $last_start_price;
+            print qq(timing_adj: $timing_adj\n) if $DEBUG;
+
+            # Add to running total.
+            $timing_end_adj += $timing_adj;
+            print qq(timing_end_adj: $timing_end_adj\n) if $DEBUG;
+
+            # Record what we ended with so we can go into the market
+            # with that amount next time.
+            $last_start_price = $timing_end_amt;
             
-            $sell_dates .= qq(\n\t$sell_start_date\t$sell_end_date);
+            # Print out market in dates.
+            $sell_dates .= qq(\n\t$timing_start_date\t$timing_end_date);
         }
         
-        my $sell_interest = $series{$start_date}{'interest'};
-        print qq(sell_interest: $sell_interest\n) if $DEBUG;
-        $sell_end_adj += $sell_interest;
+        # The interest we made when out of the market.
+        my $timing_interest = $series{$start_date}{'interest'};
+        print qq(timing_interest: $timing_interest\n) if $DEBUG;
+        $timing_end_adj += $timing_interest;
         
+        # The IRR of the timing stategy also starts with an outlay of the 
+        # the start price at the start date. At the end though we get
+        # that back plus whatever we made while in the market.
         my $irr_timing = 0;
         if ($sell_dates) {
             my %sell_cashflow = (
                 $start_date => -$start_price,
-                $end_date => $start_price + $sell_end_adj
+                $end_date => $start_price + $timing_end_adj
             );
             $irr_timing = xirr(%sell_cashflow, precision => 0.001) || 0;
             $irr_timing = sprintf("%0.2f",100*$irr_timing);
         }        
-        
+
+        # Add the IRRs for this series for future stats.
         push(@{$irr_buy_and_hold_ref},$irr_buy_and_hold);
         push(@{$irr_timing_ref},$irr_timing);
         my $diff_irr = $irr_timing - $irr_buy_and_hold;

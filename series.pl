@@ -10,7 +10,7 @@ use Date::Calc qw (Delta_Days);
 # Turn to 1 to get DEBUG messages.
 # Add a starting series date to see more detail.
 my $DEBUG = 0;
-my $DEBUG_DATE = '1986-06-01';
+my $DEBUG_DATE = '1996-06-01';
 
 # Num of months in the model.
 # The starting number is years.
@@ -28,6 +28,21 @@ my $SELL_THRESHOLD = 0.80;
 # Capital gains rate. I didn't bother modeling this,
 # since almost anything reasonable erases all the gains.
 my $CAPITAL_GAINS = 0.999999999999;
+
+# Whether we base the calculation off of nominal (1),
+# or real (0) price and dividend values.
+my $is_nominal = 1;
+
+# Whether we add interest when we're out of the market (1).
+# Default is 0 since it is more conservative, and I
+# didn't bother making the interest payments correct over time.
+my $is_interest = 1;
+
+# Year we start at -- earliest is 1871.
+my $year_start = 1871;
+
+# Year we end at -- latest data is from 2016.
+my $year_end = 2017;
 
 # S&P time series.
 my @s_and_p_series = get_s_and_p_series();
@@ -99,6 +114,10 @@ sub calculate_irr {
         my $irr_buy_and_hold = xirr(%buy_and_hold_cashflow, precision => 0.001) || 0;
         $irr_buy_and_hold = sprintf("%0.2f",100*$irr_buy_and_hold);
         
+        # Relative percentage gains for buy and hold session.
+        my $buy_and_hold_rel = sprintf("%0.2f",100*(($end_price+$dividend)-$start_price)/$start_price);
+        print qq(buy_and_hold_rel: $buy_and_hold_rel\%\n) if $DEBUG;
+
         # For printing out which dates we were in the market.
         my $timing_dates = ''; 
 
@@ -196,7 +215,7 @@ sub calculate_irr {
         }
         
         # The interest we made when out of the market.
-        my $timing_interest = $series{$start_date}{'interest'};
+        my $timing_interest = $is_interest ? $series{$start_date}{'interest'} : 0;
         print qq(timing_interest: $timing_interest\n) if $DEBUG;
         $timing_end_adj += $timing_interest;
         
@@ -219,7 +238,7 @@ sub calculate_irr {
         my $diff_irr = $irr_timing - $irr_buy_and_hold;
         $beats_count++ if $diff_irr>0;
         
-        print qq(\nBuy and Hold for $start_date to $end_date: $irr_buy_and_hold\%\nTiming strategy: $irr_timing\% (DIFF: $diff_irr\%)$timing_dates\n);
+        print qq(\nBuy and Hold for $start_date to $end_date: $irr_buy_and_hold\% (REL: $buy_and_hold_rel\%)\nTiming strategy: $irr_timing\% (DIFF: $diff_irr\%)$timing_dates\n);
     }
 
     return ($beats_count);
@@ -383,13 +402,26 @@ sub get_s_and_p_series {
     # https://github.com/datasets/s-and-p-500/tree/master/scripts
     open (IN,"<../s-and-p-500/data/data.csv");
     <IN>;
+
+    my $is_cutoff = 0;
+
     LINE: while (my $line = <IN>) {
         chomp($line);
         my @line = split(/,/,$line);
         my $date = $line[0] || '';
+
+        $is_cutoff = 1 if !$is_cutoff && $date =~ /^$year_start/;
+        next LINE if !$is_cutoff;
+
+        last LINE if $date =~ /^$year_end/;
+
         my $interest = $line [5] || '';
         my $price = $line [1] || '';
         my $dividend = $line [2] || '';
+        if (!$is_nominal) {
+            $price = $line [6] || '';
+            $dividend = $line [7] || '';
+        }
 
         next LINE if !$date || !$price || !$dividend;
         

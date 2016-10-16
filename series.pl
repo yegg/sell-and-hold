@@ -6,13 +6,26 @@ use Data::Dumper;
 use Finance::Math::IRR;
 use Statistics::Lite qw(mean stddev);
 
-# Num of months in the model.
-my $MONTHS = (30 * 12)+1;
-
-my $VALLEY_THRESHOLD = 1.10;
-my $SELL_THRESHOLD = 0.80;
+# Turn to 1 to get DEBUG messages.
+# Add a starting series date to see more detail.
 my $DEBUG = 0;
 my $DEBUG_DATE = '1986-06-01';
+
+# Num of months in the model.
+# The starting number is years.
+# The extra one is so it lines up by month.
+my $MONTHS = (30 * 12)+1;
+
+# Buy after coming off the bottom by this amount,
+# e.g. 1.10 means 10% off the valley.
+my $VALLEY_THRESHOLD = 1.10;
+
+# Sell after this threshold off the peak,
+# e.g. 0.80 means sell after a 20% correction.
+my $SELL_THRESHOLD = 0.80;
+
+# Capital gains rate. I didn't bother modeling this,
+# since almost anything reasonable erases all the gains.
 my $CAPITAL_GAINS = 0.999999999999;
 
 # S&P time series.

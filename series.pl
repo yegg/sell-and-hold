@@ -35,19 +35,19 @@ my @s_and_p_series = get_s_and_p_series();
 my %series = calculate_earnings();
 
 
-my @irr_buy = ();
-my @irr_sell = ();
-my ($diff_count, $diff_count2) = calculate_irr(\@irr_buy, \@irr_sell);
+my @irr_buy_and_hold = ();
+my @irr_timing = ();
+my ($diff_count, $diff_count2) = calculate_irr(\@irr_buy_and_hold, \@irr_timing);
 
 print qq(\ndiff_count: $diff_count\n);
 print qq(diff_count2: $diff_count2\t), sprintf("%0.2f",100*($diff_count2/$diff_count)), "\n";
-print qq(Buy and Hold mean: ), sprintf("%0.2f",mean(@irr_buy)), qq(\n);
-print qq(Buy and Hold stddev: ), sprintf("%0.2f",stddev(@irr_buy)), qq(\n);
-print qq(Timing mean: ), sprintf("%0.2f",mean(@irr_sell)), qq(\n);
-print qq(Timing stddev: ), sprintf("%0.2f",stddev(@irr_sell)), qq(\n);
+print qq(Buy and Hold mean: ), sprintf("%0.2f",mean(@irr_buy_and_hold)), qq(\n);
+print qq(Buy and Hold stddev: ), sprintf("%0.2f",stddev(@irr_buy_and_hold)), qq(\n);
+print qq(Timing mean: ), sprintf("%0.2f",mean(@irr_timing)), qq(\n);
+print qq(Timing stddev: ), sprintf("%0.2f",stddev(@irr_timing)), qq(\n);
 
 sub calculate_irr {
-    my ($irr_buy_ref, $irr_sell_ref) = @_;
+    my ($irr_buy_and_hold_ref, $irr_timing_ref) = @_;
 
     my $diff_count = 0;
     my $diff_count2 = 0;
@@ -68,8 +68,8 @@ sub calculate_irr {
             $start_date => -$start_price,
             $end_date => ($end_price + $dividend)*$CAPITAL_GAINS
         );
-        my $buy_irr = xirr(%buy_cashflow, precision => 0.001) || 0;
-        $buy_irr = sprintf("%0.2f",100*$buy_irr);
+        my $irr_buy_and_hold = xirr(%buy_cashflow, precision => 0.001) || 0;
+        $irr_buy_and_hold = sprintf("%0.2f",100*$irr_buy_and_hold);
         
         my $sell_dates = '';
         my $sell_end_adj = 0;
@@ -121,23 +121,23 @@ sub calculate_irr {
         print qq(sell_interest: $sell_interest\n) if $DEBUG;
         $sell_end_adj += $sell_interest;
         
-        my $sell_irr = 0;
+        my $irr_timing = 0;
         if ($sell_dates) {
             my %sell_cashflow = (
                 $start_date => -$start_price,
                 $end_date => $start_price + $sell_end_adj
             );
-            $sell_irr = xirr(%sell_cashflow, precision => 0.001) || 0;
-            $sell_irr = sprintf("%0.2f",100*$sell_irr);
+            $irr_timing = xirr(%sell_cashflow, precision => 0.001) || 0;
+            $irr_timing = sprintf("%0.2f",100*$irr_timing);
         }        
         
-        push(@{$irr_buy_ref},$buy_irr);
-        push(@{$irr_sell_ref},$sell_irr);
-        my $diff_irr = $sell_irr - $buy_irr;
+        push(@{$irr_buy_and_hold_ref},$irr_buy_and_hold);
+        push(@{$irr_timing_ref},$irr_timing);
+        my $diff_irr = $irr_timing - $irr_buy_and_hold;
         $diff_count++;
         $diff_count2++ if $diff_irr>0;
         
-        print qq(\n$start_date\t$end_date\t$buy_irr$sell_dates\n\t$sell_irr\t$diff_irr\n);
+        print qq(\n$start_date\t$end_date\t$irr_buy_and_hold$sell_dates\n\t$irr_timing\t$diff_irr\n);
     }
 
     return ($diff_count, $diff_count2);

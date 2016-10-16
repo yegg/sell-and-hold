@@ -156,12 +156,25 @@ sub calculate_irr {
             $timing_end_adj += $timing_adj;
             print qq(timing_end_adj: $timing_end_adj\n) if $DEBUG;
 
+            # IRR for this in-market session.
+            my %timing_cashflow_tmp = (
+                $timing_start_date => -$last_start_price,
+                $timing_end_date => $timing_end_amt
+            );
+            my $irr_timing_tmp = xirr(%timing_cashflow_tmp, precision => 0.001) || 0;
+            $irr_timing_tmp = sprintf("%0.2f",100*$irr_timing_tmp);
+            print qq(irr_timing_tmp: $irr_timing_tmp\n) if $DEBUG;
+
+            # Relative percentage gains for this in-market session.
+            my $timing_rel = sprintf("%0.2f",100*($timing_end_amt-$last_start_price)/$last_start_price);
+            print qq(timing_rel: $timing_rel\n) if $DEBUG;
+
+            # Print out market in dates.
+            $timing_dates .= qq(\n\t$timing_start_date\t$timing_end_date\tIRR: $irr_timing_tmp\%\tREL: $timing_rel\%);
+
             # Record what we ended with so we can go into the market
             # with that amount next time.
             $last_start_price = $timing_end_amt;
-            
-            # Print out market in dates.
-            $timing_dates .= qq(\n\t$timing_start_date\t$timing_end_date);
         }
         
         # The interest we made when out of the market.

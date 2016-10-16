@@ -1,5 +1,8 @@
 #!/usr/bin/env perl
 
+# This script tests a "Sell and Hold" strategy,
+# against a traditional "Buy and Hold strategy.
+
 use strict;
 use warnings;
 use Data::Dumper;

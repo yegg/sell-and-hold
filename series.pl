@@ -205,24 +205,44 @@ sub calculate_earnings {
         
         # Update existing series.
         foreach my $starting_date (keys %series) {
+
+            # Ignore series that have already completed.
             next if $series{$starting_date}{'months'}>$MONTHS;
 
+            # Are we in the market?
             my $in_market = $series{$starting_date}{'in_market'} || 0;
+
+            # Index of which time we're in the market.
             my $market_count = $series{$starting_date}{'market_count'} || 0;
 
+            # Add to overall time.
             $series{$starting_date}{'months'}++;
+
+            # Add to running dividends.
             $series{$starting_date}{'dividend'}+=$dividend;
 
+            # If this is a new price peak, reset peak and valley.
             if ($price>$series{$starting_date}{'peak'}) {
                 $series{$starting_date}{'peak'} = $price;
                 $series{$starting_date}{'valley'} = $price;
             }
-            $series{$starting_date}{'valley'} = $price if $price<$series{$starting_date}{'valley'};
 
+            # If this is a new valley, reset valley.
+            $series{$starting_date}{'valley'} = $price if $price<$series{$starting_date}{'valley'};
+            
+            # If we're in the market.
             if ($in_market) {
+
+                # Record in-market dividends.
                 $series{$starting_date}{'market'}{$market_count}{'dividend'}+=$dividend;
+
+                # If this is a new in-market peak, reset peak.
                 $series{$starting_date}{'market'}{$market_count}{'peak'} = $price if $price>$series{$starting_date}{'market'}{$market_count}{'peak'};
+
+            # If we're not in the market.
             } else {
+
+                # Add to running interest.
                 $series{$starting_date}{'interest'}+=$series{$starting_date}{'start_price'}*($interest/12)/100;
             }
 
@@ -245,18 +265,30 @@ sub calculate_earnings {
             }
 
             # When to jump in the market.
+            # If this is the first month (2 beause we already incremented above),
             if ($series{$starting_date}{'months'}==2 || 
+
+                    # OR we're not already in the market.
                     (!$in_market && 
+
+                         # AND the current price relative to the last valley is above our threhsold.
                         $price/$series{$starting_date}{'valley'} > $VALLEY_THRESHOLD)) {
 
                 if ($DEBUG && $starting_date eq $DEBUG_DATE) {
                     print qq(\n\n\n\nJUMPING INTO MARKET ON $date\n\n\n\n);
                 }
 
+                # Mark that we're now in the market.
                 $series{$starting_date}{'in_market'} = 1;
+
+                # Increment the in-market counter and update our index variable.
                 $series{$starting_date}{'market_count'}++;
                 $market_count = $series{$starting_date}{'market_count'};
+
+                # Reset the valley to the current price.
                 $series{$starting_date}{'valley'} = $price;
+
+                # Initilize in-market variables.
                 $series{$starting_date}{'market'}{$market_count}{'peak'} = $price;
                 $series{$starting_date}{'market'}{$market_count}{'start_price'} = $price;
                 $series{$starting_date}{'market'}{$market_count}{'start_date'} = $date;
@@ -264,23 +296,34 @@ sub calculate_earnings {
             }
 
             # When to jump out of the market.
-            if (1 && $in_market && 
-                            $price/$series{$starting_date}{'market'}{$market_count}{'peak'} < $SELL_THRESHOLD) {
+            # If we're already in the market,
+            if ($in_market && 
+
+                    # AND the price relative to the in-market peak has dropped below our threshold.
+                    $price/$series{$starting_date}{'market'}{$market_count}{'peak'} < $SELL_THRESHOLD) {
 
                 if ($DEBUG && $starting_date eq $DEBUG_DATE) {
                     print qq(\n\n\n\nJUMPING OUT OF MARKET ON $date\n\n\n\n);
                 }
 
+                # Mark that we're now out of the market.
                 $series{$starting_date}{'in_market'} = 0;
+
+                # Record the ending in-market price and date.
                 $series{$starting_date}{'market'}{$market_count}{'end_price'} = $price;
                 $series{$starting_date}{'market'}{$market_count}{'end_date'} = $date;
             }
 
+            # If we reached the end of our time window.
             if ($series{$starting_date}{'months'}==$MONTHS) {
+
+                # If we're currently in the market, record the ending in-market price and date.
                 if ($in_market) {
                     $series{$starting_date}{'market'}{$market_count}{'end_price'} = $price;
                     $series{$starting_date}{'market'}{$market_count}{'end_date'} = $date;
                 }
+
+                # Record the overall ending price and date.
                 $series{$starting_date}{'end_price'} = $price;
                 $series{$starting_date}{'end_date'} = $date;
             }

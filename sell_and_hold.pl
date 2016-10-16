@@ -14,6 +14,7 @@ use Date::Calc qw (Delta_Days);
 # Add a starting series date to see more detail.
 my $DEBUG = 0;
 my $DEBUG_DATE = '1986-06-01';
+#my $DEBUG_DATE = '1874-01-01';
 
 # Num of months in the model.
 # The starting number is years.
@@ -46,6 +47,9 @@ my $is_interest = 0;
 # Default is 1 since it is more conservative, and
 # also more correct.
 my $is_dividend = 1;
+
+# Whether to start immediately in the market (1) or not (0).
+my $is_start_in_market = 1;
 
 # Year we start at -- earliest is 1871.
 my $year_start = 1871;
@@ -150,10 +154,7 @@ sub calculate_irr {
 
             # How much we made in dividends when in the market.
             my $timing_dividend = $is_dividend ? $series{$start_date}{'market'}{$i}{'dividend'} : 0;
-            
-            # TK
-            next MARKET if !$timing_end_date;
-            
+
             if ($DEBUG) {
                 print qq(\n);
                 print qq(timing_start_date: $timing_start_date\n);
@@ -163,7 +164,7 @@ sub calculate_irr {
                 print qq(timing_end_price: $timing_end_price\n);
                 print qq(timing_dividend: $timing_dividend\n);
             }
-            
+
             # Because we have windows where we are out of the market, 
             # the dollars we had when we started or last sold are different
             # from the current price, so we buy a number of "shares" in the market.
@@ -269,7 +270,7 @@ sub calculate_earnings {
         foreach my $starting_date (keys %series) {
 
             # Ignore series that have already completed.
-            next if $series{$starting_date}{'months'}>$MONTHS;
+            next if $series{$starting_date}{'months'}>=$MONTHS;
 
             # Are we in the market?
             my $in_market = $series{$starting_date}{'in_market'} || 0;
@@ -312,6 +313,9 @@ sub calculate_earnings {
                 print qq(\n);
                 print qq(date: $date\n);
                 print qq(price: $price\n);
+                print qq(months: ), $series{$starting_date}{'months'}, qq(\n);
+                print qq(in_market: $in_market\n);
+                print qq(market_count: $market_count\n);
                 
                 if ($in_market) {
                     print qq(peak: ), $series{$starting_date}{'market'}{$market_count}{'peak'}, qq(\n);
@@ -327,14 +331,12 @@ sub calculate_earnings {
             }
 
             # When to jump in the market.
-            # If this is the first month (2 beause we already incremented above),
-            if ($series{$starting_date}{'months'}==2 || 
-
-                    # OR we're not already in the market.
-                    (!$in_market && 
+            if (
+                    # If we're not already in the market.
+                    !$in_market && 
 
                          # AND the current price relative to the last valley is above our threhsold.
-                        $price/$series{$starting_date}{'valley'} > $VALLEY_THRESHOLD)) {
+                        $price/$series{$starting_date}{'valley'} > $VALLEY_THRESHOLD) {
 
                 if ($DEBUG && $starting_date eq $DEBUG_DATE) {
                     print qq(\n\n\n\nJUMPING INTO MARKET ON $date\n\n\n\n);
@@ -342,11 +344,12 @@ sub calculate_earnings {
 
                 # Mark that we're now in the market.
                 $series{$starting_date}{'in_market'} = 1;
+                $in_market = 1;
 
                 # Increment the in-market counter and update our index variable.
                 $series{$starting_date}{'market_count'}++;
                 $market_count = $series{$starting_date}{'market_count'};
-
+                
                 # Reset the valley to the current price.
                 $series{$starting_date}{'valley'} = $price;
 
@@ -379,6 +382,10 @@ sub calculate_earnings {
             # If we reached the end of our time window.
             if ($series{$starting_date}{'months'}==$MONTHS) {
 
+                if ($DEBUG && $starting_date eq $DEBUG_DATE) {
+                    print qq(\n\n\n\nEND OF SERIES ON $date\n\n\n\n);
+                }
+
                 # If we're currently in the market, record the ending in-market price and date.
                 if ($in_market) {
                     $series{$starting_date}{'market'}{$market_count}{'end_price'} = $price;
@@ -388,6 +395,11 @@ sub calculate_earnings {
                 # Record the overall ending price and date.
                 $series{$starting_date}{'end_price'} = $price;
                 $series{$starting_date}{'end_date'} = $date;
+
+
+                # We are going out.
+                $series{$starting_date}{'in_market'} = 0;
+                $in_market = 0;
             }
         }
         
@@ -398,9 +410,32 @@ sub calculate_earnings {
         $series{$date}{'valley'} = $price;
         $series{$date}{'start_price'} = $price;
         $series{$date}{'dividend'} = $dividend;
-        $series{$date}{'in_market'} = 0;
-        $series{$date}{'market_count'} = 0;
         $series{$date}{'interest'} = 0;
+
+        # Start in the market.
+        if ($is_start_in_market) {
+
+            # Let the model know we're in the market.
+            $series{$date}{'in_market'} = 1;
+
+            # Increment the in-market counter and update our index variable.
+            $series{$date}{'market_count'}++;
+            my $market_count = $series{$date}{'market_count'};
+            
+            # Set the valley to the current price.
+            $series{$date}{'valley'} = $price;
+            
+            # Initilize in-market variables.
+            $series{$date}{'market'}{$market_count}{'peak'} = $price;
+            $series{$date}{'market'}{$market_count}{'start_price'} = $price;
+            $series{$date}{'market'}{$market_count}{'start_date'} = $date;
+            $series{$date}{'market'}{$market_count}{'dividend'} = $dividend;
+            
+        } else {
+            $series{$date}{'in_market'} = 0;
+            $series{$date}{'market_count'} = 0;
+        }
+
     }
 
     return %series;

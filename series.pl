@@ -37,10 +37,10 @@ my %series = calculate_earnings();
 
 my @irr_buy_and_hold = ();
 my @irr_timing = ();
-my ($diff_count, $diff_count2) = calculate_irr(\@irr_buy_and_hold, \@irr_timing);
+my ($beats_count) = calculate_irr(\@irr_buy_and_hold, \@irr_timing);
 
-print qq(\ndiff_count: $diff_count\n);
-print qq(diff_count2: $diff_count2\t), sprintf("%0.2f",100*($diff_count2/$diff_count)), "\n";
+print qq(\nTotal series: ), scalar(@irr_timing), qq(\n);
+print qq(Timing beats Buy and Hold: $beats_count, ), sprintf("%0.2f",100*($beats_count/scalar(@irr_timing))), qq(\%\n);
 print qq(Buy and Hold mean: ), sprintf("%0.2f",mean(@irr_buy_and_hold)), qq(\n);
 print qq(Buy and Hold stddev: ), sprintf("%0.2f",stddev(@irr_buy_and_hold)), qq(\n);
 print qq(Timing mean: ), sprintf("%0.2f",mean(@irr_timing)), qq(\n);
@@ -49,8 +49,7 @@ print qq(Timing stddev: ), sprintf("%0.2f",stddev(@irr_timing)), qq(\n);
 sub calculate_irr {
     my ($irr_buy_and_hold_ref, $irr_timing_ref) = @_;
 
-    my $diff_count = 0;
-    my $diff_count2 = 0;
+    my $beats_count = 0;
 
   SERIES: foreach my $series (sort {$a cmp $b} keys %series) {
         next SERIES if $series{$series}{'months'}<$MONTHS;
@@ -134,13 +133,12 @@ sub calculate_irr {
         push(@{$irr_buy_and_hold_ref},$irr_buy_and_hold);
         push(@{$irr_timing_ref},$irr_timing);
         my $diff_irr = $irr_timing - $irr_buy_and_hold;
-        $diff_count++;
-        $diff_count2++ if $diff_irr>0;
+        $beats_count++ if $diff_irr>0;
         
         print qq(\n$start_date\t$end_date\t$irr_buy_and_hold$sell_dates\n\t$irr_timing\t$diff_irr\n);
     }
 
-    return ($diff_count, $diff_count2);
+    return ($beats_count);
 }
 
 

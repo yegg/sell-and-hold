@@ -5,6 +5,7 @@ use warnings;
 use Data::Dumper;
 use Finance::Math::IRR;
 use Statistics::Lite qw(mean stddev);
+use Date::Calc qw (Delta_Days);
 
 # Turn to 1 to get DEBUG messages.
 # Add a starting series date to see more detail.
@@ -37,7 +38,9 @@ my %series = calculate_earnings();
 # Internal rate of returns for each strategy.
 my @irr_buy_and_hold = ();
 my @irr_timing = ();
-my ($beats_count) = calculate_irr(\@irr_buy_and_hold, \@irr_timing);
+my @timings = (); 
+my @timing_length = (); 
+my ($beats_count) = calculate_irr(\@irr_buy_and_hold, \@irr_timing, \@timings, \@timing_length);
 
 print qq(\nTotal series: ), scalar(@irr_timing), qq(\n);
 print qq(Timing beats Buy and Hold: $beats_count, ), sprintf("%0.2f",100*($beats_count/scalar(@irr_timing))), qq(\%\n);
@@ -45,11 +48,15 @@ print qq(Buy and Hold mean: ), sprintf("%0.2f",mean(@irr_buy_and_hold)), qq(\%\n
 print qq(Buy and Hold stddev: ), sprintf("%0.2f",stddev(@irr_buy_and_hold)), qq(\%\n);
 print qq(Timing mean: ), sprintf("%0.2f",mean(@irr_timing)), qq(\%\n);
 print qq(Timing stddev: ), sprintf("%0.2f",stddev(@irr_timing)), qq(\%\n);
+print qq(Timing length mean: ), sprintf("%0.2f",mean(@timing_length)), qq( yrs\n);
+print qq(Timing length stddev: ), sprintf("%0.2f",stddev(@timing_length)), qq( yrs\n);
+print qq(Timings mean: ), sprintf("%0.2f",mean(@timings)), qq( times\n);
+print qq(Timings stddev: ), sprintf("%0.2f",stddev(@timings)), qq( times\n);
 
 
 # Uses calculated earnings to calculate IRRs for each strategy.
 sub calculate_irr {
-    my ($irr_buy_and_hold_ref, $irr_timing_ref) = @_;
+    my ($irr_buy_and_hold_ref, $irr_timing_ref, $timings_ref, $timing_length_ref) = @_;
 
     # The number of times the timing strategy beats the buy and hold strategy.
     my $beats_count = 0;
@@ -79,6 +86,7 @@ sub calculate_irr {
 
         # How many times we were in the market.
         my $market_count = $series{$start_date}{'market_count'};
+        push(@{$timings_ref},$market_count);
         
         # IRR calculation for buy and hold.
         # Assumes we bought "1 share" of the market at the current price,
@@ -168,6 +176,16 @@ sub calculate_irr {
             # Relative percentage gains for this in-market session.
             my $timing_rel = sprintf("%0.2f",100*($timing_end_amt-$last_start_price)/$last_start_price);
             print qq(timing_rel: $timing_rel\n) if $DEBUG;
+
+            # Calculate length of time we were in the market.
+            {
+                my ($syear,$smonth,$sday) = $timing_start_date =~ /^(\d+)\-(\d+)\-(\d+)/;
+                my ($eyear,$emonth,$eday) = $timing_end_date =~ /^(\d+)\-(\d+)\-(\d+)/;
+                my $Dd = Delta_Days($syear,$smonth,$sday,
+                                 $eyear,$emonth,$eday);
+                print qq(Dd: $Dd\n) if $DEBUG;
+                push(@{$timing_length_ref},$Dd/365);
+            }
 
             # Print out market in dates.
             $timing_dates .= qq(\n\t$timing_start_date\t$timing_end_date\tIRR: $irr_timing_tmp\%\tREL: $timing_rel\%);

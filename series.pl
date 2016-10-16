@@ -15,11 +15,6 @@ my $DEBUG = 0;
 my $DEBUG_DATE = '1986-06-01';
 my $CAPITAL_GAINS = 0.999999999999;
 
-my @irr_buy;
-my @irr_sell;
-my $diff_count = 0;
-my $diff_count2 = 0;
-
 # S&P time series.
 my @s_and_p_series = get_s_and_p_series();
 
@@ -27,93 +22,9 @@ my @s_and_p_series = get_s_and_p_series();
 my %series = calculate_earnings();
 
 
-SERIES: foreach my $series (sort {$a cmp $b} keys %series) {
-    next SERIES if $series{$series}{'months'}<$MONTHS;
-    next SERIES if $series ne $DEBUG_DATE && $DEBUG;
-
-    my $start_date = $series;
-    my $end_date = $series{$start_date}{'end_date'};
-    my $start_price = $series{$start_date}{'start_price'};
-    my $end_price = $series{$start_date}{'end_price'};
-    my $dividend = $series{$start_date}{'dividend'};
-    my $in_market = $series{$start_date}{'in_market'};
-    my $market_count = $series{$start_date}{'market_count'};
-
-    my %buy_cashflow = (
-        $start_date => -$start_price,
-        $end_date => ($end_price + $dividend)*$CAPITAL_GAINS
-    );
-    my $buy_irr = xirr(%buy_cashflow, precision => 0.001) || 0;
-    $buy_irr = sprintf("%0.2f",100*$buy_irr);
-
-    my $sell_dates = '';
-    my $sell_end_adj = 0;
-    my $last_start_price = $start_price;
-    MARKET: for (my $i=1; $i<=$market_count; $i++) {
-        my $sell_start_date = $series{$start_date}{'market'}{$i}{'start_date'};
-        my $sell_end_date = $series{$start_date}{'market'}{$i}{'end_date'};
-        my $sell_start_price = $series{$start_date}{'market'}{$i}{'start_price'};
-        my $sell_end_price = $series{$start_date}{'market'}{$i}{'end_price'};
-        my $sell_dividend = $series{$start_date}{'market'}{$i}{'dividend'};
-
-        next MARKET if !$sell_end_date;
-
-        if ($DEBUG) {
-            print qq(\n);
-            print qq(series_start_date: $start_date\n);
-            print qq(series_start_price: $start_price\n);
-            print qq(sell_start_date: $sell_start_date\n);
-            print qq(sell_end_date: $sell_end_date\n);
-            print qq(last_start_price: $last_start_price\n);
-            print qq(sell_start_price: $sell_start_price\n);
-            print qq(sell_end_price: $sell_end_price\n);
-            print qq(sell_dividend: $sell_dividend\n);
-        }
-
-        my $shares = $last_start_price / $sell_start_price;
-        print qq(shares: $shares\n) if $DEBUG;
-
-        my $sell_start_price_adj = $sell_start_price * $shares;
-        my $sell_end_price_adj = $sell_end_price * $shares;
-        my $sell_dividend_adj = $sell_dividend * $shares;
-        my $sell_end_amt = ($sell_end_price_adj+$sell_dividend_adj)*$CAPITAL_GAINS;
-
-        if ($DEBUG) {
-            print qq(sell_start_price_adj: $sell_start_price_adj\n);
-            print qq(sell_end_price_adj: $sell_end_price_adj\n);
-            print qq(sell_dividend_adj: $sell_dividend_adj\n);
-            print qq(sell_end_amt: $sell_end_amt\n);
-        }
-
-        $sell_end_adj += $sell_end_amt - $last_start_price;
-        $last_start_price = $sell_end_amt;
-        print qq(sell_end_adj: $sell_end_adj\n) if $DEBUG;
-
-        $sell_dates .= qq(\n\t$sell_start_date\t$sell_end_date);
-    }
-
-    my $sell_interest = $series{$start_date}{'interest'};
-    print qq(sell_interest: $sell_interest\n) if $DEBUG;
-    $sell_end_adj += $sell_interest;
-
-    my $sell_irr = 0;
-    if ($sell_dates) {
-        my %sell_cashflow = (
-            $start_date => -$start_price,
-            $end_date => $start_price + $sell_end_adj
-        );
-        $sell_irr = xirr(%sell_cashflow, precision => 0.001) || 0;
-        $sell_irr = sprintf("%0.2f",100*$sell_irr);
-    }        
-
-    push(@irr_buy,$buy_irr);
-    push(@irr_sell,$sell_irr);
-    my $diff_irr = $sell_irr - $buy_irr;
-    $diff_count++;
-    $diff_count2++ if $diff_irr>0;
-
-    print qq(\n$start_date\t$end_date\t$buy_irr$sell_dates\n\t$sell_irr\t$diff_irr\n);
-}
+my @irr_buy = ();
+my @irr_sell = ();
+my ($diff_count, $diff_count2) = calculate_irr(\@irr_buy, \@irr_sell);
 
 print qq(\ndiff_count: $diff_count\n);
 print qq(diff_count2: $diff_count2\t), sprintf("%0.2f",100*($diff_count2/$diff_count)), "\n";
@@ -122,8 +33,105 @@ print qq(Buy and Hold stddev: ), sprintf("%0.2f",stddev(@irr_buy)), qq(\n);
 print qq(Timing mean: ), sprintf("%0.2f",mean(@irr_sell)), qq(\n);
 print qq(Timing stddev: ), sprintf("%0.2f",stddev(@irr_sell)), qq(\n);
 
+sub calculate_irr {
+    my ($irr_buy_ref, $irr_sell_ref) = @_;
 
-sub calculate_earnings() {
+    my $diff_count = 0;
+    my $diff_count2 = 0;
+
+  SERIES: foreach my $series (sort {$a cmp $b} keys %series) {
+        next SERIES if $series{$series}{'months'}<$MONTHS;
+        next SERIES if $series ne $DEBUG_DATE && $DEBUG;
+        
+        my $start_date = $series;
+        my $end_date = $series{$start_date}{'end_date'};
+        my $start_price = $series{$start_date}{'start_price'};
+        my $end_price = $series{$start_date}{'end_price'};
+        my $dividend = $series{$start_date}{'dividend'};
+        my $in_market = $series{$start_date}{'in_market'};
+        my $market_count = $series{$start_date}{'market_count'};
+        
+        my %buy_cashflow = (
+            $start_date => -$start_price,
+            $end_date => ($end_price + $dividend)*$CAPITAL_GAINS
+        );
+        my $buy_irr = xirr(%buy_cashflow, precision => 0.001) || 0;
+        $buy_irr = sprintf("%0.2f",100*$buy_irr);
+        
+        my $sell_dates = '';
+        my $sell_end_adj = 0;
+        my $last_start_price = $start_price;
+      MARKET: for (my $i=1; $i<=$market_count; $i++) {
+            my $sell_start_date = $series{$start_date}{'market'}{$i}{'start_date'};
+            my $sell_end_date = $series{$start_date}{'market'}{$i}{'end_date'};
+            my $sell_start_price = $series{$start_date}{'market'}{$i}{'start_price'};
+            my $sell_end_price = $series{$start_date}{'market'}{$i}{'end_price'};
+            my $sell_dividend = $series{$start_date}{'market'}{$i}{'dividend'};
+            
+            next MARKET if !$sell_end_date;
+            
+            if ($DEBUG) {
+                print qq(\n);
+                print qq(series_start_date: $start_date\n);
+                print qq(series_start_price: $start_price\n);
+                print qq(sell_start_date: $sell_start_date\n);
+                print qq(sell_end_date: $sell_end_date\n);
+                print qq(last_start_price: $last_start_price\n);
+                print qq(sell_start_price: $sell_start_price\n);
+                print qq(sell_end_price: $sell_end_price\n);
+                print qq(sell_dividend: $sell_dividend\n);
+            }
+            
+            my $shares = $last_start_price / $sell_start_price;
+            print qq(shares: $shares\n) if $DEBUG;
+            
+            my $sell_start_price_adj = $sell_start_price * $shares;
+            my $sell_end_price_adj = $sell_end_price * $shares;
+            my $sell_dividend_adj = $sell_dividend * $shares;
+            my $sell_end_amt = ($sell_end_price_adj+$sell_dividend_adj)*$CAPITAL_GAINS;
+            
+            if ($DEBUG) {
+                print qq(sell_start_price_adj: $sell_start_price_adj\n);
+                print qq(sell_end_price_adj: $sell_end_price_adj\n);
+                print qq(sell_dividend_adj: $sell_dividend_adj\n);
+                print qq(sell_end_amt: $sell_end_amt\n);
+            }
+            
+            $sell_end_adj += $sell_end_amt - $last_start_price;
+            $last_start_price = $sell_end_amt;
+            print qq(sell_end_adj: $sell_end_adj\n) if $DEBUG;
+            
+            $sell_dates .= qq(\n\t$sell_start_date\t$sell_end_date);
+        }
+        
+        my $sell_interest = $series{$start_date}{'interest'};
+        print qq(sell_interest: $sell_interest\n) if $DEBUG;
+        $sell_end_adj += $sell_interest;
+        
+        my $sell_irr = 0;
+        if ($sell_dates) {
+            my %sell_cashflow = (
+                $start_date => -$start_price,
+                $end_date => $start_price + $sell_end_adj
+            );
+            $sell_irr = xirr(%sell_cashflow, precision => 0.001) || 0;
+            $sell_irr = sprintf("%0.2f",100*$sell_irr);
+        }        
+        
+        push(@{$irr_buy_ref},$buy_irr);
+        push(@{$irr_sell_ref},$sell_irr);
+        my $diff_irr = $sell_irr - $buy_irr;
+        $diff_count++;
+        $diff_count2++ if $diff_irr>0;
+        
+        print qq(\n$start_date\t$end_date\t$buy_irr$sell_dates\n\t$sell_irr\t$diff_irr\n);
+    }
+
+    return ($diff_count, $diff_count2);
+}
+
+
+sub calculate_earnings {
     my %series = ();
 
     while (my $date = shift @s_and_p_series) {

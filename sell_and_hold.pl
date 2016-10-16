@@ -53,6 +53,9 @@ my $year_start = 1871;
 # Year we end at -- latest data is from 2016.
 my $year_end = 2017;
 
+# Whether to print out the individual series (1) or not (0).
+my $is_print_series = 1;
+
 # S&P time series.
 my @s_and_p_series = get_s_and_p_series();
 
@@ -247,7 +250,7 @@ sub calculate_irr {
         my $diff_irr = $irr_timing - $irr_buy_and_hold;
         $beats_count++ if $diff_irr>0;
         
-        print qq(\nBuy and Hold for $start_date to $end_date: $irr_buy_and_hold\% (REL: $buy_and_hold_rel\%)\nTiming strategy: $irr_timing\% (DIFF: $diff_irr\%)$timing_dates\n);
+        print qq(\nBuy and Hold for $start_date to $end_date: $irr_buy_and_hold\% (REL: $buy_and_hold_rel\%)\nTiming strategy: $irr_timing\% (DIFF: $diff_irr\%)$timing_dates\n) if $is_print_series;
     }
 
     return ($beats_count);

@@ -226,7 +226,7 @@ sub get_s_and_p_series {
     my @series = ();
 
     # https://github.com/datasets/s-and-p-500/tree/master/scripts
-    open (IN,"<s-and-p-500/data/data.csv");
+    open (IN,"<../s-and-p-500/data/data.csv");
     <IN>;
     LINE: while (my $line = <IN>) {
         chomp($line);

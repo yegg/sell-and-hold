@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 use Finance::Math::IRR;
+use Statistics::Lite qw(mean stddev);
 
 # Num of months in the model.
 my $MONTHS = (30 * 12)+1;
@@ -14,6 +15,8 @@ my $DEBUG = 0;
 my $DEBUG_DATE = '1986-06-01';
 my $CAPITAL_GAINS = 0.999999999999;
 
+my @irr_buy;
+my @irr_sell;
 my $diff_count = 0;
 my $diff_count2 = 0;
 
@@ -103,6 +106,8 @@ SERIES: foreach my $series (sort {$a cmp $b} keys %series) {
         $sell_irr = sprintf("%0.2f",100*$sell_irr);
     }        
 
+    push(@irr_buy,$buy_irr);
+    push(@irr_sell,$sell_irr);
     my $diff_irr = $sell_irr - $buy_irr;
     $diff_count++;
     $diff_count2++ if $diff_irr>0;
@@ -112,6 +117,10 @@ SERIES: foreach my $series (sort {$a cmp $b} keys %series) {
 
 print qq(\ndiff_count: $diff_count\n);
 print qq(diff_count2: $diff_count2\t), sprintf("%0.2f",100*($diff_count2/$diff_count)), "\n";
+print qq(Buy and Hold mean: ), sprintf("%0.2f",mean(@irr_buy)), qq(\n);
+print qq(Buy and Hold stddev: ), sprintf("%0.2f",stddev(@irr_buy)), qq(\n);
+print qq(Timing mean: ), sprintf("%0.2f",mean(@irr_sell)), qq(\n);
+print qq(Timing stddev: ), sprintf("%0.2f",stddev(@irr_sell)), qq(\n);
 
 
 sub calculate_earnings() {

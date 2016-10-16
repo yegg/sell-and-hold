@@ -13,7 +13,7 @@ use Date::Calc qw (Delta_Days);
 # Turn to 1 to get DEBUG messages.
 # Add a starting series date to see more detail.
 my $DEBUG = 0;
-my $DEBUG_DATE = '1996-06-01';
+my $DEBUG_DATE = '1986-06-01';
 
 # Num of months in the model.
 # The starting number is years.
@@ -22,15 +22,16 @@ my $MONTHS = (30 * 12)+1;
 
 # Buy after coming off the bottom by this amount,
 # e.g. 1.10 means 10% off the valley.
-my $VALLEY_THRESHOLD = 1.10;
+my $VALLEY_THRESHOLD = 1.05;
 
 # Sell after this threshold off the peak,
 # e.g. 0.80 means sell after a 20% correction.
 my $SELL_THRESHOLD = 0.80;
 
-# Capital gains rate. I didn't bother modeling this,
+# Capital gains you get to keep. 1 means all.
+# I didn't bother modeling this over time,
 # since almost anything reasonable erases all the gains.
-my $CAPITAL_GAINS = 0.999999999999;
+my $CAPITAL_GAINS = 1;
 
 # Whether we base the calculation off of nominal (1),
 # or real (0) price and dividend values.
@@ -39,7 +40,12 @@ my $is_nominal = 1;
 # Whether we add interest when we're out of the market (1).
 # Default is 0 since it is more conservative, and I
 # didn't bother making the interest payments correct over time.
-my $is_interest = 1;
+my $is_interest = 0;
+
+# Whether to include dividends (1) or not (0).
+# Default is 1 since it is more conservative, and
+# also more correct.
+my $is_dividend = 1;
 
 # Year we start at -- earliest is 1871.
 my $year_start = 1871;
@@ -100,7 +106,7 @@ sub calculate_irr {
         my $end_price = $series{$start_date}{'end_price'};
 
         # The amount we made from dividends.
-        my $dividend = $series{$start_date}{'dividend'};
+        my $dividend = $is_dividend ? $series{$start_date}{'dividend'} : 0;
 
         # How many times we were in the market.
         my $market_count = $series{$start_date}{'market_count'};
@@ -140,7 +146,7 @@ sub calculate_irr {
             my $timing_end_price = $series{$start_date}{'market'}{$i}{'end_price'};
 
             # How much we made in dividends when in the market.
-            my $timing_dividend = $series{$start_date}{'market'}{$i}{'dividend'};
+            my $timing_dividend = $is_dividend ? $series{$start_date}{'market'}{$i}{'dividend'} : 0;
             
             # TK
             next MARKET if !$timing_end_date;

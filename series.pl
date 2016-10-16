@@ -41,10 +41,10 @@ my ($beats_count) = calculate_irr(\@irr_buy_and_hold, \@irr_timing);
 
 print qq(\nTotal series: ), scalar(@irr_timing), qq(\n);
 print qq(Timing beats Buy and Hold: $beats_count, ), sprintf("%0.2f",100*($beats_count/scalar(@irr_timing))), qq(\%\n);
-print qq(Buy and Hold mean: ), sprintf("%0.2f",mean(@irr_buy_and_hold)), qq(\n);
-print qq(Buy and Hold stddev: ), sprintf("%0.2f",stddev(@irr_buy_and_hold)), qq(\n);
-print qq(Timing mean: ), sprintf("%0.2f",mean(@irr_timing)), qq(\n);
-print qq(Timing stddev: ), sprintf("%0.2f",stddev(@irr_timing)), qq(\n);
+print qq(Buy and Hold mean: ), sprintf("%0.2f",mean(@irr_buy_and_hold)), qq(\%\n);
+print qq(Buy and Hold stddev: ), sprintf("%0.2f",stddev(@irr_buy_and_hold)), qq(\%\n);
+print qq(Timing mean: ), sprintf("%0.2f",mean(@irr_timing)), qq(\%\n);
+print qq(Timing stddev: ), sprintf("%0.2f",stddev(@irr_timing)), qq(\%\n);
 
 
 # Uses calculated earnings to calculate IRRs for each strategy.
@@ -92,7 +92,7 @@ sub calculate_irr {
         $irr_buy_and_hold = sprintf("%0.2f",100*$irr_buy_and_hold);
         
         # For printing out which dates we were in the market.
-        my $sell_dates = ''; 
+        my $timing_dates = ''; 
 
         # For calculating how much we deviated from buy and hold.
         my $timing_end_adj = 0; 
@@ -161,7 +161,7 @@ sub calculate_irr {
             $last_start_price = $timing_end_amt;
             
             # Print out market in dates.
-            $sell_dates .= qq(\n\t$timing_start_date\t$timing_end_date);
+            $timing_dates .= qq(\n\t$timing_start_date\t$timing_end_date);
         }
         
         # The interest we made when out of the market.
@@ -173,12 +173,12 @@ sub calculate_irr {
         # the start price at the start date. At the end though we get
         # that back plus whatever we made while in the market.
         my $irr_timing = 0;
-        if ($sell_dates) {
-            my %sell_cashflow = (
+        if ($timing_dates) {
+            my %timing_cashflow = (
                 $start_date => -$start_price,
                 $end_date => $start_price + $timing_end_adj
             );
-            $irr_timing = xirr(%sell_cashflow, precision => 0.001) || 0;
+            $irr_timing = xirr(%timing_cashflow, precision => 0.001) || 0;
             $irr_timing = sprintf("%0.2f",100*$irr_timing);
         }        
 
@@ -188,7 +188,7 @@ sub calculate_irr {
         my $diff_irr = $irr_timing - $irr_buy_and_hold;
         $beats_count++ if $diff_irr>0;
         
-        print qq(\n$start_date\t$end_date\t$irr_buy_and_hold$sell_dates\n\t$irr_timing\t$diff_irr\n);
+        print qq(\nBuy and Hold for $start_date to $end_date: $irr_buy_and_hold\%\nTiming strategy: $irr_timing\% (DIFF: $diff_irr\%)$timing_dates\n);
     }
 
     return ($beats_count);

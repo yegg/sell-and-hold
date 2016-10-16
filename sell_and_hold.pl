@@ -27,12 +27,10 @@ my $VALLEY_THRESHOLD = 1.05;
 
 # Sell after this threshold off the peak,
 # e.g. 0.80 means sell after a 20% correction.
-my $SELL_THRESHOLD = 0.80;
+my $SELL_THRESHOLD = 0.90;
 
-# Capital gains you get to keep. 1 means all.
-# I didn't bother modeling this over time,
-# since almost anything reasonable erases all the gains.
-my $CAPITAL_GAINS = 1;
+# Capital gains you have to give away (0 for none).
+my $CAPITAL_GAINS = 0.50;
 
 # Whether we base the calculation off of nominal (1),
 # or real (0) price and dividend values.
@@ -79,6 +77,7 @@ print qq(Buy and Hold mean: ), sprintf("%0.2f",mean(@irr_buy_and_hold)), qq(\%\n
 print qq(Buy and Hold stddev: ), sprintf("%0.2f",stddev(@irr_buy_and_hold)), qq(\%\n);
 print qq(Timing mean: ), sprintf("%0.2f",mean(@irr_timing)), qq(\%\n);
 print qq(Timing stddev: ), sprintf("%0.2f",stddev(@irr_timing)), qq(\%\n);
+print qq(Diff means: ), sprintf("%0.2f",mean(@irr_timing) - mean(@irr_buy_and_hold)), qq(\%\n);
 print qq(Timing length mean: ), sprintf("%0.2f",mean(@timing_length)), qq( yrs\n);
 print qq(Timing length stddev: ), sprintf("%0.2f",stddev(@timing_length)), qq( yrs\n);
 print qq(Timings mean: ), sprintf("%0.2f",mean(@timings)), qq( times\n);
@@ -118,20 +117,27 @@ sub calculate_irr {
         # How many times we were in the market.
         my $market_count = $series{$start_date}{'market_count'};
         push(@{$timings_ref},$market_count);
-        
+
+        # How much we made total.
+        my $end_amt = $end_price + $dividend;
+
+        # How much we give up in capital gains tax.
+        my $end_capital_gains = ($end_amt-$start_price)*$CAPITAL_GAINS;
+        $end_capital_gains = 0 if $end_capital_gains<0;
+
         # IRR calculation for buy and hold.
         # Assumes we bought "1 share" of the market at the current price,
         # Then got cash back at the end price, plus any accrued dividends,
         # Then took capital gains.
         my %buy_and_hold_cashflow = (
             $start_date => -$start_price,
-            $end_date => ($end_price + $dividend)*$CAPITAL_GAINS
+            $end_date => $end_amt-$end_capital_gains
         );
         my $irr_buy_and_hold = xirr(%buy_and_hold_cashflow, precision => 0.001) || 0;
         $irr_buy_and_hold = sprintf("%0.2f",100*$irr_buy_and_hold);
         
         # Relative percentage gains for buy and hold session.
-        my $buy_and_hold_rel = sprintf("%0.2f",100*(($end_price+$dividend)-$start_price)/$start_price);
+        my $buy_and_hold_rel = sprintf("%0.2f",100*($end_amt-$start_price)/$start_price);
         print qq(buy_and_hold_rel: $buy_and_hold_rel\%\n) if $DEBUG;
 
         # For printing out which dates we were in the market.
@@ -176,20 +182,24 @@ sub calculate_irr {
             my $timing_end_price_adj = $timing_end_price * $shares;
             my $timing_dividend_adj = $timing_dividend * $shares;
 
-            # When we sell we get back the adjusted end price,
-            # plus dividends, less capital gains.
-            my $timing_end_amt = ($timing_end_price_adj+$timing_dividend_adj)*$CAPITAL_GAINS;
-            
+            # When we sell we get back the adjusted end price plus dividends,
+            my $timing_end_amt = $timing_end_price_adj+$timing_dividend_adj;
+
+            # What we owe in capital gains.
+            my $timing_end_capital_gains = ($timing_end_amt-$last_start_price)*$CAPITAL_GAINS;
+            $timing_end_capital_gains = 0 if $timing_end_capital_gains<0;
+
             if ($DEBUG) {
                 print qq(timing_start_price_adj: $timing_start_price_adj\n);
                 print qq(timing_end_price_adj: $timing_end_price_adj\n);
                 print qq(timing_dividend_adj: $timing_dividend_adj\n);
                 print qq(timing_end_amt: $timing_end_amt\n);
+                print qq(timing_end_capital_gains: $timing_end_capital_gains\n);
             }
             
             # For this round in the market, we actually made
             # what we ended with minus what we started with.
-            my $timing_adj = $timing_end_amt - $last_start_price;
+            my $timing_adj = $timing_end_amt - $last_start_price - $timing_end_capital_gains;
             print qq(timing_adj: $timing_adj\n) if $DEBUG;
 
             # Add to running total.
@@ -199,7 +209,7 @@ sub calculate_irr {
             # IRR for this in-market session.
             my %timing_cashflow_tmp = (
                 $timing_start_date => -$last_start_price,
-                $timing_end_date => $timing_end_amt
+                $timing_end_date => $timing_end_amt-$timing_end_capital_gains
             );
             my $irr_timing_tmp = xirr(%timing_cashflow_tmp, precision => 0.001) || 0;
             $irr_timing_tmp = sprintf("%0.2f",100*$irr_timing_tmp);

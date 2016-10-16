@@ -457,7 +457,7 @@ sub get_s_and_p_series {
     my @series = ();
 
     # https://github.com/datasets/s-and-p-500/tree/master/scripts
-    open (IN,"<s-and-p-500_data.csv");
+    open (IN,"<data/s-and-p-500.csv");
     <IN>;
 
     my $is_cutoff = 0;

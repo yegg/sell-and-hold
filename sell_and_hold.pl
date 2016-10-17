@@ -121,19 +121,27 @@ sub calculate_irr {
         my $market_count = $series{$start_date}{'market_count'};
         push(@{$timings_ref},$market_count);
 
-        # How much we made total.
-        my $end_amt = $end_price + $dividend;
-
         # How much we give up in capital gains tax.
-        my $end_capital_gains = calculate_capital_gains_tax($start_date,$end_date,($end_amt-$start_price));
+        my $end_capital_gains = calculate_capital_gains_tax($start_date,$end_date,$end_price-$start_price);
         $end_capital_gains = 0 if !$is_capital_gains || $end_capital_gains<0;
+
+        # Increase start price by transaction costs.
+        my $start_price_adj = $start_price;
+        $start_price_adj += calculate_transaction_cost($start_date,$start_price_adj) if $is_transaction_costs;
+
+        # Reduce end price by transaction costs.
+        my $end_price_adj = $end_price;
+        $end_price_adj -= calculate_transaction_cost($end_date,$end_price_adj) if $is_transaction_costs;
+
+        # How much we made total.
+        my $end_amt = $end_price_adj + $dividend;
 
         # IRR calculation for buy and hold.
         # Assumes we bought "1 share" of the market at the current price,
         # Then got cash back at the end price, plus any accrued dividends,
         # Then took capital gains.
         my %buy_and_hold_cashflow = (
-            $start_date => -$start_price,
+            $start_date => -$start_price_adj,
             $end_date => $end_amt-$end_capital_gains
         );
         my $irr_buy_and_hold = xirr(%buy_and_hold_cashflow, precision => 0.001) || 0;
@@ -185,17 +193,28 @@ sub calculate_irr {
             my $timing_end_price_adj = $timing_end_price * $shares;
             my $timing_dividend_adj = $timing_dividend * $shares;
 
-            # When we sell we get back the adjusted end price plus dividends,
-            my $timing_end_amt = $timing_end_price_adj+$timing_dividend_adj;
-
-            # What we owe in capital gains.
-            my $timing_end_capital_gains = calculate_capital_gains_tax($timing_start_date,$timing_end_date,($timing_end_amt-$last_start_price));
-            $timing_end_capital_gains = 0 if !$is_capital_gains || $timing_end_capital_gains<0;
-
             if ($DEBUG) {
                 print qq(timing_start_price_adj: $timing_start_price_adj\n);
                 print qq(timing_end_price_adj: $timing_end_price_adj\n);
                 print qq(timing_dividend_adj: $timing_dividend_adj\n);
+            }
+
+            # Increase start price by transaction costs.
+            $timing_start_price_adj += calculate_transaction_cost($timing_start_date,$timing_start_price_adj) if $is_transaction_costs;
+            print qq(timing_start_price after transaction costs: $timing_start_price_adj\n) if $DEBUG;
+
+            # Reduce end price by transaction costs.
+            $timing_end_price_adj -= calculate_transaction_cost($timing_end_date,$timing_end_price_adj) if $is_transaction_costs;
+            print qq(timing_end_price after transaction costs: $timing_end_price_adj\n) if $DEBUG;
+
+            # When we sell we get back the adjusted end price plus dividends,
+            my $timing_end_amt = $timing_end_price_adj+$timing_dividend_adj;
+
+            # What we owe in capital gains.
+            my $timing_end_capital_gains = calculate_capital_gains_tax($timing_start_date,$timing_end_date,$timing_end_price_adj-$last_start_price);
+            $timing_end_capital_gains = 0 if !$is_capital_gains || $timing_end_capital_gains<0;
+
+            if ($DEBUG) {
                 print qq(timing_end_amt: $timing_end_amt\n);
                 print qq(timing_end_capital_gains: $timing_end_capital_gains\n);
             }
@@ -583,7 +602,7 @@ sub get_s_and_p_series {
 
         # Get rate.
         my $dividend_rate = $dividend_tax_rates{$year} || 0;
-        print qq(dividend_rate: ), (100*$dividend_rate), qq(\%\n) if $DEBUG;
+        #print qq(dividend_rate: ), (100*$dividend_rate), qq(\%\n) if $DEBUG;
 
         # Calculate amount.
         my $dividend_tax_amt = $gain * $dividend_rate;
@@ -615,12 +634,15 @@ sub get_s_and_p_series {
     }        
 
     sub calculate_transaction_cost {
-        my ($year, $amt) = @_;
+        my ($date, $amt) = @_;
 
         if (!$is_rates_loaded) {
             get_transaction_cost_rates();
             $is_rates_loaded = 1;
         }
+
+        # Get year.
+        my ($year) = $date =~ /^(\d+)-/;
 
         # Get rate.
         my $transaction_cost_rate = $transaction_cost_rates{$year} || 0;

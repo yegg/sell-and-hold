@@ -123,7 +123,7 @@ sub calculate_irr {
 
         # How much we give up in capital gains tax.
         my $end_capital_gains = calculate_capital_gains_tax($start_date,$end_date,($end_amt-$start_price));
-        $end_capital_gains = 0 if $end_capital_gains<0;
+        $end_capital_gains = 0 if !$is_capital_gains || $end_capital_gains<0;
 
         # IRR calculation for buy and hold.
         # Assumes we bought "1 share" of the market at the current price,
@@ -186,8 +186,8 @@ sub calculate_irr {
             my $timing_end_amt = $timing_end_price_adj+$timing_dividend_adj;
 
             # What we owe in capital gains.
-            my $timing_end_capital_gains =calculate_capital_gains_tax($timing_start_date,$timing_end_date,($timing_end_amt-$last_start_price));
-            $timing_end_capital_gains = 0 if $timing_end_capital_gains<0;
+            my $timing_end_capital_gains = calculate_capital_gains_tax($timing_start_date,$timing_end_date,($timing_end_amt-$last_start_price));
+            $timing_end_capital_gains = 0 if !$is_capital_gains || $timing_end_capital_gains<0;
 
             if ($DEBUG) {
                 print qq(timing_start_price_adj: $timing_start_price_adj\n);
@@ -482,6 +482,10 @@ sub get_s_and_p_series {
 
         next LINE if !$date || !$price || !$dividend;
         
+        # Reduce dividends by the dividend tax.
+        my ($year) = $date =~ /^(\d+)\-/;
+        $dividend -= calculate_dividend_tax($year,$dividend) if $is_capital_gains;
+
         push(@series,$date,$price,$interest,$dividend/12);
     }
     close(IN);
@@ -542,5 +546,45 @@ sub get_s_and_p_series {
         my $capital_gains_amt = $gain * $capital_gains_rate;
 
         return $capital_gains_amt;
+    }
+}
+
+# Calculate dividends tax.
+{
+
+    my $is_rates_loaded = 0;
+    my %dividend_tax_rates = ();
+
+    sub get_dividend_tax_rates {
+
+        open(DIV,"<data/dividend_max_tax_rates.csv");
+        <DIV>;
+        while (my $line = <DIV>) {
+            chomp($line);
+            my @line = split(/,/,$line);
+            my $year = $line[0];
+            my $rate = $line[1]/100;
+            
+            $dividend_tax_rates{$year} = $rate
+        }
+        close(DIV);
+    }        
+
+    sub calculate_dividend_tax {
+        my ($year, $gain) = @_;
+
+        if (!$is_rates_loaded) {
+            get_dividend_tax_rates();
+            $is_rates_loaded = 1;
+        }
+
+        # Get rate.
+        my $dividend_rate = $dividend_tax_rates{$year} || 0;
+        print qq(dividend_rate: ), (100*$dividend_rate), qq(\%\n) if $DEBUG;
+
+        # Calculate amount.
+        my $dividend_tax_amt = $gain * $dividend_rate;
+
+        return $dividend_tax_amt;
     }
 }

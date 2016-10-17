@@ -32,6 +32,9 @@ my $SELL_THRESHOLD = 0.90;
 # Whether to include capital gains (1) or not (0).
 my $is_capital_gains = 1;
 
+# Whether to include transaciton costs (1) or not (0).
+my $is_transaction_costs = 1;
+
 # Whether we base the calculation off of nominal (1),
 # or real (0) price and dividend values.
 my $is_nominal = 1;
@@ -586,5 +589,46 @@ sub get_s_and_p_series {
         my $dividend_tax_amt = $gain * $dividend_rate;
 
         return $dividend_tax_amt;
+    }
+}
+
+
+# Calculate transaction costs.
+{
+
+    my $is_rates_loaded = 0;
+    my %transaction_cost_rates = ();
+
+    sub get_transaction_cost_rates {
+
+        open(DIV,"<data/transction_cost_rates.csv");
+        <DIV>;
+        while (my $line = <DIV>) {
+            chomp($line);
+            my @line = split(/,/,$line);
+            my $year = $line[0];
+            my $rate = $line[1]/100;
+            
+            $transaction_cost_rates{$year} = $rate
+        }
+        close(DIV);
+    }        
+
+    sub calculate_transaction_cost {
+        my ($year, $amt) = @_;
+
+        if (!$is_rates_loaded) {
+            get_transaction_cost_rates();
+            $is_rates_loaded = 1;
+        }
+
+        # Get rate.
+        my $transaction_cost_rate = $transaction_cost_rates{$year} || 0;
+        print qq(transaction_cost_rate: ), (100*$transaction_cost_rate), qq(\%\n) if $DEBUG;
+
+        # Calculate amount.
+        my $transaction_cost_amt = $amt * $transaction_cost_rate;
+
+        return $transaction_cost_amt;
     }
 }

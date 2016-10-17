@@ -29,8 +29,8 @@ my $VALLEY_THRESHOLD = 1.05;
 # e.g. 0.80 means sell after a 20% correction.
 my $SELL_THRESHOLD = 0.90;
 
-# Capital gains you have to give away (0 for none).
-my $CAPITAL_GAINS = 0.50;
+# Whether to include capital gains (1) or not (0).
+my $is_capital_gains = 1;
 
 # Whether we base the calculation off of nominal (1),
 # or real (0) price and dividend values.
@@ -122,7 +122,7 @@ sub calculate_irr {
         my $end_amt = $end_price + $dividend;
 
         # How much we give up in capital gains tax.
-        my $end_capital_gains = ($end_amt-$start_price)*$CAPITAL_GAINS;
+        my $end_capital_gains = calculate_capital_gains_tax($start_date,$end_date,($end_amt-$start_price));
         $end_capital_gains = 0 if $end_capital_gains<0;
 
         # IRR calculation for buy and hold.
@@ -186,7 +186,7 @@ sub calculate_irr {
             my $timing_end_amt = $timing_end_price_adj+$timing_dividend_adj;
 
             # What we owe in capital gains.
-            my $timing_end_capital_gains = ($timing_end_amt-$last_start_price)*$CAPITAL_GAINS;
+            my $timing_end_capital_gains =calculate_capital_gains_tax($timing_start_date,$timing_end_date,($timing_end_amt-$last_start_price));
             $timing_end_capital_gains = 0 if $timing_end_capital_gains<0;
 
             if ($DEBUG) {
@@ -536,11 +536,10 @@ sub get_s_and_p_series {
 
         # Get rate.
         my $capital_gains_rate = $is_long_term ? $capital_gains_rates{$year_gain}{'long_term'} : $capital_gains_rates{$year_gain}{'short_term'};
-        print qq(capital_gains_rate: $capital_gains_rate\%) if $DEBUG;
+        print qq(capital_gains_rate: ), (100*$capital_gains_rate), qq(\%\n) if $DEBUG;
 
         # Calculate amount.
         my $capital_gains_amt = $gain * $capital_gains_rate;
-        print qq(capital_gains_amt: \$$capital_gains_amt\n) if $DEBUG;
 
         return $capital_gains_amt;
     }

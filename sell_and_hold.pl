@@ -488,3 +488,60 @@ sub get_s_and_p_series {
 
     return @series;
 }
+
+# Calculate capital gains tax.
+{
+
+    my $is_rates_loaded = 0;
+    my %capital_gains_rates = ();
+
+    sub get_capital_gains_rates {
+
+        open(IN,"<data/capital_gains_max_tax_rates.csv");
+        <IN>;
+        while (my $line = <IN>) {
+            chomp($line);
+            my @line = split(/,/,$line);
+            my $year = $line[0];
+            my $long_term = $line[1]/100;
+            my $short_term = $line[2]/100;
+            
+            $capital_gains_rates{$year}{'long_term'} = $long_term;
+            $capital_gains_rates{$year}{'short_term'} = $short_term;
+        }
+        close(IN);
+    }        
+
+    sub calculate_capital_gains_tax {
+        my ($start_date, $end_date, $gain) = @_;
+
+        if (!$is_rates_loaded) {
+            get_capital_gains_rates();
+            $is_rates_loaded = 1;
+        }
+
+        my $is_long_term = 0;
+        my $year_gain = '';
+        {
+            my ($syear,$smonth,$sday) = $start_date =~ /^(\d+)\-(\d+)\-(\d+)/;
+            my ($eyear,$emonth,$eday) = $end_date =~ /^(\d+)\-(\d+)\-(\d+)/;
+            my $Dd = Delta_Days($syear,$smonth,$sday,
+                                $eyear,$emonth,$eday);
+
+            # If holding period is greater than 365 days, use long term rate.
+            $is_long_term = 1 if $Dd>365;
+            $year_gain = $eyear; 
+            print qq(year_gain: $year_gain\n) if $DEBUG;
+        }
+
+        # Get rate.
+        my $capital_gains_rate = $is_long_term ? $capital_gains_rates{$year_gain}{'long_term'} : $capital_gains_rates{$year_gain}{'short_term'};
+        print qq(capital_gains_rate: $capital_gains_rate\%) if $DEBUG;
+
+        # Calculate amount.
+        my $capital_gains_amt = $gain * $capital_gains_rate;
+        print qq(capital_gains_amt: \$$capital_gains_amt\n) if $DEBUG;
+
+        return $capital_gains_amt;
+    }
+}

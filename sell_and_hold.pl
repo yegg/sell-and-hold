@@ -9,6 +9,7 @@ use Data::Dumper;
 use Finance::Math::IRR;
 use Statistics::Lite qw(mean stddev);
 use Date::Calc qw (Delta_Days);
+use Getopt::Long;
 
 # Turn to 1 to get DEBUG messages.
 # Add a starting series date to see more detail.
@@ -16,10 +17,8 @@ my $DEBUG = 0;
 my $DEBUG_DATE = '1986-06-01';
 #my $DEBUG_DATE = '1874-01-01';
 
-# Num of months in the model.
-# The starting number is years.
-# The extra one is so it lines up by month.
-my $MONTHS = (30 * 12)+1;
+# Num of years in the model.
+my $YEARS = 30;
 
 # Buy after coming off the bottom by this amount,
 # e.g. 1.10 means 10% off the valley.
@@ -60,6 +59,16 @@ my $year_end = 2017;
 
 # Whether to print out the individual series (1) or not (0).
 my $is_print_series = 1;
+
+# Override options via the command line.
+GetOptions (
+    'years=i' => \$YEARS,
+    'valley_threshold=f' => \$VALLEY_THRESHOLD,
+    'sell_threshold=f' => \$SELL_THRESHOLD,
+);
+
+# The extra one is so it lines up by month.
+my $MONTHS = ($YEARS * 12)+1;
 
 # S&P time series.
 my @s_and_p_series = get_s_and_p_series();

@@ -328,7 +328,7 @@ sub calculate_earnings {
             # If this is a new price peak, reset peak and valley.
             if ($price>$series{$starting_date}{'peak'}) {
                 $series{$starting_date}{'peak'} = $price;
-                $series{$starting_date}{'valley'} = $price;
+                $series{$starting_date}{'valley'} = $price if (($price/$series{$starting_date}{'valley'}) <= $VALLEY_THRESHOLD) || $in_market;
             }
 
             # If this is a new valley, reset valley.

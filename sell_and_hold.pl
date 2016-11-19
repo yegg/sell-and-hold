@@ -13,10 +13,10 @@ use Getopt::Long;
 
 # Turn to 1 to get DEBUG messages.
 # Add a starting series date to see more detail.
-my $DEBUG = 1;
-#my $DEBUG_DATE = '1986-06-01';
+my $DEBUG = 0;
+my $DEBUG_DATE = '1986-06-01';
 #my $DEBUG_DATE = '1874-01-01';
-my $DEBUG_DATE = '1937-11-01';
+#my $DEBUG_DATE = '1937-11-01';
 
 # Num of years in the model.
 my $YEARS = 30;
@@ -27,10 +27,13 @@ my $VALLEY_THRESHOLD = 1.05;
 
 # Sell after this threshold off the peak,
 # e.g. 0.80 means sell after a 20% correction.
-my $SELL_THRESHOLD = 0.90;
+my $SELL_THRESHOLD = 0.80;
 
 # Whether to include capital gains (1) or not (0).
 my $is_capital_gains = 1;
+
+# Whether to force a static capital gains rate of (x)% or not (0).
+my $is_capital_gains_rate = 0;
 
 # Whether to include transaciton costs (1) or not (0).
 my $is_transaction_costs = 1;
@@ -54,12 +57,13 @@ my $is_start_in_market = 1;
 
 # Year we start at -- earliest is 1871.
 my $year_start = 1871;
+#my $year_start = 1950;
 
 # Year we end at -- latest data is from 2016.
 my $year_end = 2017;
 
 # Whether to print out the individual series (1) or not (0).
-my $is_print_series = 1;
+my $is_print_series = 0;
 
 # Override options via the command line.
 GetOptions (
@@ -578,6 +582,7 @@ sub get_s_and_p_series {
 
         # Get rate.
         my $capital_gains_rate = $is_long_term ? $capital_gains_rates{$year_gain}{'long_term'} : $capital_gains_rates{$year_gain}{'short_term'};
+        $capital_gains_rate = $is_capital_gains_rate if $is_capital_gains_rate;
         print qq(capital_gains_rate: ), (100*$capital_gains_rate), qq(\%\n) if $DEBUG;
 
         # Calculate amount.

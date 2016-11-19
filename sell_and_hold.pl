@@ -13,7 +13,7 @@ use Getopt::Long;
 
 # Turn to 1 to get DEBUG messages.
 # Add a starting series date to see more detail.
-my $DEBUG = 1;
+my $DEBUG = 0;
 my $DEBUG_DATE = '1986-06-01';
 #my $DEBUG_DATE = '1874-01-01';
 
@@ -58,7 +58,7 @@ my $year_start = 1871;
 my $year_end = 2017;
 
 # Whether to print out the individual series (1) or not (0).
-my $is_print_series = 1;
+my $is_print_series = 0;
 
 # Override options via the command line.
 GetOptions (

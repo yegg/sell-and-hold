@@ -13,7 +13,7 @@ use Getopt::Long;
 
 # Turn to 1 to get DEBUG messages.
 # Add a starting series date to see more detail.
-my $DEBUG = 0;
+my $DEBUG = 1;
 my $DEBUG_DATE = '1986-06-01';
 #my $DEBUG_DATE = '1874-01-01';
 
@@ -86,14 +86,14 @@ my ($beats_count) = calculate_irr(\@irr_buy_and_hold, \@irr_timing, \@timings, \
 print qq(\nTotal series: ), scalar(@irr_timing), qq(\n);
 print qq(Timing beats Buy and Hold: $beats_count, ), sprintf("%0.2f",100*($beats_count/scalar(@irr_timing))), qq(\%\n);
 print qq(Buy and Hold mean: ), sprintf("%0.2f",mean(@irr_buy_and_hold)), qq(\%\n);
-print qq(Buy and Hold stddev: ), sprintf("%0.2f",stddev(@irr_buy_and_hold)), qq(\%\n);
+print qq(Buy and Hold STDDEV: ), sprintf("%0.2f",stddev(@irr_buy_and_hold)), qq(\%\n);
 print qq(Timing mean: ), sprintf("%0.2f",mean(@irr_timing)), qq(\%\n);
-print qq(Timing stddev: ), sprintf("%0.2f",stddev(@irr_timing)), qq(\%\n);
+print qq(Timing STDDEV: ), sprintf("%0.2f",stddev(@irr_timing)), qq(\%\n);
 print qq(Diff means: ), sprintf("%0.2f",mean(@irr_timing) - mean(@irr_buy_and_hold)), qq(\%\n);
 print qq(Timing length mean: ), sprintf("%0.2f",mean(@timing_length)), qq( yrs\n);
-print qq(Timing length stddev: ), sprintf("%0.2f",stddev(@timing_length)), qq( yrs\n);
+print qq(Timing length STDDEV: ), sprintf("%0.2f",stddev(@timing_length)), qq( yrs\n);
 print qq(Timings mean: ), sprintf("%0.2f",mean(@timings)), qq( times\n);
-print qq(Timings stddev: ), sprintf("%0.2f",stddev(@timings)), qq( times\n);
+print qq(Timings STDDEV: ), sprintf("%0.2f",stddev(@timings)), qq( times\n);
 
 
 # Uses calculated earnings to calculate IRRs for each strategy.
@@ -261,7 +261,7 @@ sub calculate_irr {
             }
 
             # Print out market in dates.
-            $timing_dates .= qq(\n\t$timing_start_date\t$timing_end_date\tIRR: $irr_timing_tmp\%\tREL: $timing_rel\%);
+            $timing_dates .= qq(\n\t$timing_start_date\t$timing_end_date\tIRR: $irr_timing_tmp\%\tABR: $timing_rel\%);
 
             # Record what we ended with so we can go into the market
             # with that amount next time.
@@ -292,7 +292,7 @@ sub calculate_irr {
         my $diff_irr = $irr_timing - $irr_buy_and_hold;
         $beats_count++ if $diff_irr>0;
         
-        print qq(\nBuy and Hold for $start_date to $end_date: $irr_buy_and_hold\% (REL: $buy_and_hold_rel\%)\nTiming strategy: $irr_timing\% (DIFF: $diff_irr\%)$timing_dates\n) if $is_print_series;
+        print qq(\nBuy and Hold for $start_date to $end_date: $irr_buy_and_hold\% (ABR: $buy_and_hold_rel\%)\nTiming strategy: $irr_timing\% (DIFF: $diff_irr\%)$timing_dates\n) if $is_print_series;
     }
 
     return ($beats_count);

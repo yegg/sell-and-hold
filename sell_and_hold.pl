@@ -13,9 +13,10 @@ use Getopt::Long;
 
 # Turn to 1 to get DEBUG messages.
 # Add a starting series date to see more detail.
-my $DEBUG = 0;
-my $DEBUG_DATE = '1986-06-01';
+my $DEBUG = 1;
+#my $DEBUG_DATE = '1986-06-01';
 #my $DEBUG_DATE = '1874-01-01';
+my $DEBUG_DATE = '1937-11-01';
 
 # Num of years in the model.
 my $YEARS = 30;
@@ -58,7 +59,7 @@ my $year_start = 1871;
 my $year_end = 2017;
 
 # Whether to print out the individual series (1) or not (0).
-my $is_print_series = 0;
+my $is_print_series = 1;
 
 # Override options via the command line.
 GetOptions (
@@ -325,15 +326,16 @@ sub calculate_earnings {
             # Add to running dividends.
             $series{$starting_date}{'dividend'}+=$dividend;
 
-            # If this is a new price peak, reset peak and valley.
-            if ($price>$series{$starting_date}{'peak'}) {
+            # If this is a new price peak in market, reset peak.
+            if ($price>$series{$starting_date}{'peak'} && $in_market) {
                 $series{$starting_date}{'peak'} = $price;
-                $series{$starting_date}{'valley'} = $price;
             }
 
-            # If this is a new valley, reset valley.
-            $series{$starting_date}{'valley'} = $price if $price<$series{$starting_date}{'valley'};
-            
+            # If this is a new valley out of market, reset valley.
+            if ($price<$series{$starting_date}{'valley'} && !$in_market) {
+                $series{$starting_date}{'valley'} = $price;
+            }            
+
             # If we're in the market.
             if ($in_market) {
 
@@ -391,8 +393,9 @@ sub calculate_earnings {
                 $series{$starting_date}{'market_count'}++;
                 $market_count = $series{$starting_date}{'market_count'};
                 
-                # Reset the valley to the current price.
+                # Reset the peak & valley to the current price.
                 $series{$starting_date}{'valley'} = $price;
+                $series{$starting_date}{'peak'} = $price;
 
                 # Initilize in-market variables.
                 $series{$starting_date}{'market'}{$market_count}{'peak'} = $price;
@@ -418,6 +421,10 @@ sub calculate_earnings {
                 # Record the ending in-market price and date.
                 $series{$starting_date}{'market'}{$market_count}{'end_price'} = $price;
                 $series{$starting_date}{'market'}{$market_count}{'end_date'} = $date;
+
+                # Reset the peak & valley to the current price.
+                $series{$starting_date}{'valley'} = $price;
+                $series{$starting_date}{'peak'} = $price;
             }
 
             # If we reached the end of our time window.

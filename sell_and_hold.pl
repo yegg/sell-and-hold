@@ -14,12 +14,13 @@ use Getopt::Long;
 # Turn to 1 to get DEBUG messages.
 # Add a starting series date to see more detail.
 my $DEBUG = 0;
-my $DEBUG_DATE = '1986-06-01';
-#my $DEBUG_DATE = '1874-01-01';
+#my $DEBUG_DATE = '1986-06-01';
+my $DEBUG_DATE = '1871-01-01';
 #my $DEBUG_DATE = '1937-11-01';
 
 # Num of years in the model.
 my $YEARS = 30;
+#$YEARS = 140;
 
 # Buy after coming off the bottom by this amount,
 # e.g. 1.10 means 10% off the valley.
@@ -47,10 +48,14 @@ my $is_nominal = 1;
 # didn't bother making the interest payments correct over time.
 my $is_interest = 0;
 
-# Whether to include dividends (1) or not (0).
+# Whether to include dividends (1) or not (0) in returns.
 # Default is 1 since it is more conservative, and
 # also more correct.
 my $is_dividend = 1;
+
+# Whether to include dividends (1) or not (0)
+# in peak/valley threshold calculations.
+my $is_dividends_in_threshold = 0;
 
 # Whether to start immediately in the market (1) or not (0).
 my $is_start_in_market = 1;
@@ -63,7 +68,7 @@ my $year_start = 1871;
 my $year_end = 2017;
 
 # Whether to print out the individual series (1) or not (0).
-my $is_print_series = 0;
+my $is_print_series = 1;
 
 # Override options via the command line.
 GetOptions (
@@ -311,6 +316,7 @@ sub calculate_earnings {
         my $price = shift(@s_and_p_series);
         my $interest = shift(@s_and_p_series);
         my $dividend = shift(@s_and_p_series);
+        my $price_adj = $price;
         
         # Update existing series.
         foreach my $starting_date (keys %series) {
@@ -330,36 +336,32 @@ sub calculate_earnings {
             # Add to running dividends.
             $series{$starting_date}{'dividend'}+=$dividend;
 
-            # If this is a new price peak in market, reset peak.
-            if ($price>$series{$starting_date}{'peak'} && $in_market) {
-                $series{$starting_date}{'peak'} = $price;
+            # If using total returns, then adjust price accordingly.
+            if ($is_dividends_in_threshold) {
+                if ($in_market) {
+                    $price_adj = $price + $series{$starting_date}{'market'}{$market_count}{'dividend'};
+                } else {
+                    $price_adj = $price + $series{$starting_date}{'dividend_out'};
+                }
             }
+
+            # If this is a new price peak in market, reset peak.
+            $series{$starting_date}{'peak'} = $price_adj if $in_market && $price_adj>$series{$starting_date}{'peak'};
 
             # If this is a new valley out of market, reset valley.
-            if ($price<$series{$starting_date}{'valley'} && !$in_market) {
-                $series{$starting_date}{'valley'} = $price;
-            }            
+            $series{$starting_date}{'valley'} = $price_adj if !$in_market && $price_adj<$series{$starting_date}{'valley'};
 
-            # If we're in the market.
-            if ($in_market) {
+            # If this is a new in-market peak, reset peak.
+            $series{$starting_date}{'market'}{$market_count}{'peak'} = $price_adj if $in_market && $price_adj>$series{$starting_date}{'market'}{$market_count}{'peak'};
 
-                # Record in-market dividends.
-                $series{$starting_date}{'market'}{$market_count}{'dividend'}+=$dividend;
-
-                # If this is a new in-market peak, reset peak.
-                $series{$starting_date}{'market'}{$market_count}{'peak'} = $price if $price>$series{$starting_date}{'market'}{$market_count}{'peak'};
-
-            # If we're not in the market.
-            } else {
-
-                # Add to running interest.
-                $series{$starting_date}{'interest'}+=$series{$starting_date}{'start_price'}*($interest/12)/100;
-            }
+            # Add to running interest.
+            $series{$starting_date}{'interest'}+=$series{$starting_date}{'start_price'}*($interest/12)/100 if !$in_market;
 
             if ($DEBUG && $starting_date eq $DEBUG_DATE) {
                 print qq(\n);
                 print qq(date: $date\n);
                 print qq(price: $price\n);
+                print qq(price_adj: $price_adj\n);
                 print qq(months: ), $series{$starting_date}{'months'}, qq(\n);
                 print qq(in_market: $in_market\n);
                 print qq(market_count: $market_count\n);
@@ -367,69 +369,71 @@ sub calculate_earnings {
                 if ($in_market) {
                     print qq(peak: ), $series{$starting_date}{'market'}{$market_count}{'peak'}, qq(\n);
                     print qq(start_price: ), $series{$starting_date}{'market'}{$market_count}{'start_price'}, qq(\n);
-                    print qq(peak threshold: ), $price/$series{$starting_date}{'market'}{$market_count}{'peak'}, qq(\n);
+                    print qq(peak threshold: ), $price_adj/$series{$starting_date}{'market'}{$market_count}{'peak'}, qq(\n);
+
                 } else {
                     print qq(peak: ), $series{$starting_date}{'peak'}, qq(\n);
-                    print qq(peak threshold: ), $price/$series{$starting_date}{'peak'}, qq(\n);
+                    print qq(peak threshold: ), $price_adj/$series{$starting_date}{'peak'}, qq(\n);
                 }
 
                 print qq(valley: ), $series{$starting_date}{'valley'}, qq(\n);
-                print qq(valley threshold: ), $price/$series{$starting_date}{'valley'}, qq( vs $VALLEY_THRESHOLD\n);
+                print qq(valley threshold: ), $price_adj/$series{$starting_date}{'valley'}, qq( vs $VALLEY_THRESHOLD\n);
             }
 
             # When to jump in the market.
-            if (
-                    # If we're not already in the market.
-                    !$in_market && 
+            if (!$in_market) {
 
-                         # AND the current price relative to the last valley is above our threhsold.
-                        $price/$series{$starting_date}{'valley'} > $VALLEY_THRESHOLD) {
+                # The current price relative to the last valley is above our threhsold.
+                if ($price_adj/$series{$starting_date}{'valley'} > $VALLEY_THRESHOLD) {
 
-                if ($DEBUG && $starting_date eq $DEBUG_DATE) {
-                    print qq(\n\n\n\nJUMPING INTO MARKET ON $date\n\n\n\n);
+                    if ($DEBUG && $starting_date eq $DEBUG_DATE) {
+                        print qq(\n\n\n\nJUMPING INTO MARKET ON $date\n\n\n\n);
+                    }
+                    
+                    # Mark that we're now in the market.
+                    $series{$starting_date}{'in_market'} = 1;
+                    $in_market = 1;
+                    
+                    # Increment the in-market counter and update our index variable.
+                    $series{$starting_date}{'market_count'}++;
+                    $market_count = $series{$starting_date}{'market_count'};
+                    
+                    # Reset the peak & valley to the current price.
+                    $series{$starting_date}{'valley'} = $price_adj;
+                    $series{$starting_date}{'peak'} = $price_adj;
+                    
+                    # Initilize in-market variables.
+                    $series{$starting_date}{'market'}{$market_count}{'peak'} = $price_adj;
+                    $series{$starting_date}{'market'}{$market_count}{'start_price'} = $price;
+                    $series{$starting_date}{'market'}{$market_count}{'start_date'} = $date;
+                    $series{$starting_date}{'market'}{$market_count}{'dividend'} = $dividend;
                 }
-
-                # Mark that we're now in the market.
-                $series{$starting_date}{'in_market'} = 1;
-                $in_market = 1;
-
-                # Increment the in-market counter and update our index variable.
-                $series{$starting_date}{'market_count'}++;
-                $market_count = $series{$starting_date}{'market_count'};
-                
-                # Reset the peak & valley to the current price.
-                $series{$starting_date}{'valley'} = $price;
-                $series{$starting_date}{'peak'} = $price;
-
-                # Initilize in-market variables.
-                $series{$starting_date}{'market'}{$market_count}{'peak'} = $price;
-                $series{$starting_date}{'market'}{$market_count}{'start_price'} = $price;
-                $series{$starting_date}{'market'}{$market_count}{'start_date'} = $date;
-                $series{$starting_date}{'market'}{$market_count}{'dividend'} = $dividend;
             }
 
             # When to jump out of the market.
             # If we're already in the market,
-            if ($in_market && 
+            if ($in_market) {
 
-                    # AND the price relative to the in-market peak has dropped below our threshold.
-                    $price/$series{$starting_date}{'market'}{$market_count}{'peak'} < $SELL_THRESHOLD) {
+                # The price relative to the in-market peak has dropped below our threshold.
+                if ($price_adj/$series{$starting_date}{'market'}{$market_count}{'peak'} < $SELL_THRESHOLD) {
 
-                if ($DEBUG && $starting_date eq $DEBUG_DATE) {
-                    print qq(\n\n\n\nJUMPING OUT OF MARKET ON $date\n\n\n\n);
+                    if ($DEBUG && $starting_date eq $DEBUG_DATE) {
+                        print qq(\n\n\n\nJUMPING OUT OF MARKET ON $date\n\n\n\n);
+                    }
+
+                    # Mark that we're now out of the market.
+                    $series{$starting_date}{'in_market'} = 0;
+
+                    # Record the ending in-market price and date.
+                    $series{$starting_date}{'market'}{$market_count}{'end_price'} = $price;
+                    $series{$starting_date}{'market'}{$market_count}{'end_date'} = $date;
+
+                    # Reset the peak & valley to the current price.
+                    $series{$starting_date}{'valley'} = $price_adj;
+                    $series{$starting_date}{'peak'} = $price_adj;
+                    $series{$starting_date}{'dividend_out'} = 0 if $is_dividends_in_threshold;
                 }
-
-                # Mark that we're now out of the market.
-                $series{$starting_date}{'in_market'} = 0;
-
-                # Record the ending in-market price and date.
-                $series{$starting_date}{'market'}{$market_count}{'end_price'} = $price;
-                $series{$starting_date}{'market'}{$market_count}{'end_date'} = $date;
-
-                # Reset the peak & valley to the current price.
-                $series{$starting_date}{'valley'} = $price;
-                $series{$starting_date}{'peak'} = $price;
-            }
+            }                
 
             # If we reached the end of our time window.
             if ($series{$starting_date}{'months'}==$MONTHS) {
@@ -453,13 +457,19 @@ sub calculate_earnings {
                 $series{$starting_date}{'in_market'} = 0;
                 $in_market = 0;
             }
+
+            # Add to running dividends when out of market.
+            $series{$starting_date}{'dividend_out'}+=$dividend if !$in_market;
+
+            # Record in-market dividends.
+            $series{$starting_date}{'market'}{$market_count}{'dividend'}+=$dividend if $in_market;
         }
         
         # Add new series.
         $series{$date} = ();
         $series{$date}{'months'} = 1;
-        $series{$date}{'peak'} = $price;
-        $series{$date}{'valley'} = $price;
+        $series{$date}{'peak'} = $price_adj;
+        $series{$date}{'valley'} = $price_adj;
         $series{$date}{'start_price'} = $price;
         $series{$date}{'dividend'} = $dividend;
         $series{$date}{'interest'} = 0;
@@ -478,7 +488,7 @@ sub calculate_earnings {
             $series{$date}{'valley'} = $price;
             
             # Initilize in-market variables.
-            $series{$date}{'market'}{$market_count}{'peak'} = $price;
+            $series{$date}{'market'}{$market_count}{'peak'} = $price_adj;
             $series{$date}{'market'}{$market_count}{'start_price'} = $price;
             $series{$date}{'market'}{$market_count}{'start_date'} = $date;
             $series{$date}{'market'}{$market_count}{'dividend'} = $dividend;
@@ -499,7 +509,7 @@ sub get_s_and_p_series {
     my @series = ();
 
     # https://github.com/datasets/s-and-p-500/tree/master/scripts
-    open (IN,"<data/s-and-p-500.csv");
+    open (IN,"<data/s-and-p-500.adj.csv");
     <IN>;
 
     my $is_cutoff = 0;
@@ -528,7 +538,7 @@ sub get_s_and_p_series {
         my ($year) = $date =~ /^(\d+)\-/;
         $dividend -= calculate_dividend_tax($year,$dividend) if $is_capital_gains;
 
-        push(@series,$date,$price,$interest,$dividend/12);
+        push(@series,$date,$price,$interest,$dividend);
     }
     close(IN);
 

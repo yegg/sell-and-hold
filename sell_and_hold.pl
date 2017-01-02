@@ -13,9 +13,9 @@ use Getopt::Long;
 
 # Turn to 1 to get DEBUG messages.
 # Add a starting series date to see more detail.
-my $DEBUG = 0;
-#my $DEBUG_DATE = '1986-06-01';
-my $DEBUG_DATE = '1871-01-01';
+my $DEBUG = 1;
+my $DEBUG_DATE = '1986-06-01';
+#my $DEBUG_DATE = '1871-01-01';
 #my $DEBUG_DATE = '1937-11-01';
 
 # Num of years in the model.
@@ -41,7 +41,7 @@ my $is_transaction_costs = 1;
 
 # Whether we base the calculation off of nominal (1),
 # or real (0) price and dividend values.
-my $is_nominal = 1;
+my $is_nominal = 0;
 
 # Whether we add interest when we're out of the market (1).
 # Default is 0 since it is more conservative, and I
@@ -61,8 +61,8 @@ my $is_dividends_in_threshold = 0;
 my $is_start_in_market = 1;
 
 # Year we start at -- earliest is 1871.
-my $year_start = 1871;
-#my $year_start = 1950;
+#my $year_start = 1871;
+my $year_start = 1950;
 
 # Year we end at -- latest data is from 2016.
 my $year_end = 2017;

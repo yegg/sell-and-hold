@@ -13,7 +13,7 @@ use Getopt::Long;
 
 # Turn to 1 to get DEBUG messages.
 # Add a starting series date to see more detail.
-my $DEBUG = 0;
+my $DEBUG = 1;
 my $DEBUG_DATE = '1950-01-01';
 #my $DEBUG_DATE = '1871-01-01';
 #my $DEBUG_DATE = '1937-11-01';
@@ -61,8 +61,8 @@ my $is_dividends_in_threshold = 0;
 my $is_start_in_market = 1;
 
 # Year we start at -- earliest is 1871.
-my $year_start = 1871;
-#my $year_start = 1950;
+#my $year_start = 1871;
+my $year_start = 1950;
 
 # Year we end at -- latest data is from 2016.
 my $year_end = 2017;
@@ -542,7 +542,7 @@ sub get_s_and_p_series {
         
         # Reduce dividends by the dividend tax.
         my ($year) = $date =~ /^(\d+)\-/;
-        $dividend -= calculate_dividend_tax($year,$dividend) if $is_capital_gains;
+        $dividend -= calculate_dividend_tax($year,$dividend) if $is_capital_gains && $dividend>0;
 
         push(@series,$date,$price,$interest,$dividend);
     }

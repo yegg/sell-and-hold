@@ -13,8 +13,8 @@ use Getopt::Long;
 
 # Turn to 1 to get DEBUG messages.
 # Add a starting series date to see more detail.
-my $DEBUG = 1;
-my $DEBUG_DATE = '1986-06-01';
+my $DEBUG = 0;
+my $DEBUG_DATE = '1950-01-01';
 #my $DEBUG_DATE = '1871-01-01';
 #my $DEBUG_DATE = '1937-11-01';
 
@@ -28,10 +28,10 @@ my $VALLEY_THRESHOLD = 1.05;
 
 # Sell after this threshold off the peak,
 # e.g. 0.80 means sell after a 20% correction.
-my $SELL_THRESHOLD = 0.80;
+my $SELL_THRESHOLD = 0.95;
 
 # Whether to include capital gains (1) or not (0).
-my $is_capital_gains = 1;
+my $is_capital_gains = 0;
 
 # Whether to force a static capital gains rate of (x)% or not (0).
 my $is_capital_gains_rate = 0;
@@ -41,7 +41,7 @@ my $is_transaction_costs = 1;
 
 # Whether we base the calculation off of nominal (1),
 # or real (0) price and dividend values.
-my $is_nominal = 0;
+my $is_nominal = 1;
 
 # Whether we add interest when we're out of the market (1).
 # Default is 0 since it is more conservative, and I
@@ -61,14 +61,15 @@ my $is_dividends_in_threshold = 0;
 my $is_start_in_market = 1;
 
 # Year we start at -- earliest is 1871.
-#my $year_start = 1871;
-my $year_start = 1950;
+my $year_start = 1871;
+#my $year_start = 1950;
 
 # Year we end at -- latest data is from 2016.
 my $year_end = 2017;
 
-# Whether to print out the individual series (1) or not (0).
-my $is_print_series = 1;
+# Whether to print out the individual series (2),
+# just summaries (1), or nothing (0).
+my $is_print_series = 2;
 
 # Override options via the command line.
 GetOptions (
@@ -165,9 +166,9 @@ sub calculate_irr {
         );
         my $irr_buy_and_hold = xirr(%buy_and_hold_cashflow, precision => 0.001) || 0;
         $irr_buy_and_hold = sprintf("%0.2f",100*$irr_buy_and_hold);
-        
+
         # Relative percentage gains for buy and hold session.
-        my $buy_and_hold_rel = sprintf("%0.2f",100*($end_amt-$start_price)/$start_price);
+        my $buy_and_hold_rel = sprintf("%0.2f",100*(($end_amt-$end_capital_gains-$start_price)/$start_price));
         print qq(buy_and_hold_rel: $buy_and_hold_rel\%\n) if $DEBUG;
 
         # For printing out which dates we were in the market.
@@ -207,7 +208,7 @@ sub calculate_irr {
             my $shares = $last_start_price / $timing_start_price;
             print qq(shares: $shares\n) if $DEBUG;
             
-            # We then adkust the prices and dividends based on our share amount.
+            # We then adjust the prices and dividends based on our share amount.
             my $timing_start_price_adj = $timing_start_price * $shares;
             my $timing_end_price_adj = $timing_end_price * $shares;
             my $timing_dividend_adj = $timing_dividend * $shares;
@@ -249,7 +250,7 @@ sub calculate_irr {
 
             # IRR for this in-market session.
             my %timing_cashflow_tmp = (
-                $timing_start_date => -$last_start_price,
+                $timing_start_date => -$timing_start_price_adj,
                 $timing_end_date => $timing_end_amt-$timing_end_capital_gains
             );
             my $irr_timing_tmp = xirr(%timing_cashflow_tmp, precision => 0.001) || 0;
@@ -257,7 +258,7 @@ sub calculate_irr {
             print qq(irr_timing_tmp: $irr_timing_tmp\n) if $DEBUG;
 
             # Relative percentage gains for this in-market session.
-            my $timing_rel = sprintf("%0.2f",100*($timing_end_amt-$last_start_price)/$last_start_price);
+            my $timing_rel = sprintf("%0.2f",100*($timing_end_amt-$timing_start_price_adj)/$timing_start_price_adj);
             print qq(timing_rel: $timing_rel\n) if $DEBUG;
 
             # Calculate length of time we were in the market.
@@ -296,13 +297,18 @@ sub calculate_irr {
             $irr_timing = sprintf("%0.2f",100*$irr_timing);
         }        
 
+        # Relative percentage gains for sell and hold session.
+        my $sell_and_hold_rel = sprintf("%0.2f",100*(($start_price+$timing_end_adj-$start_price)/$start_price));
+        print qq(sell_and_hold_rel: $sell_and_hold_rel\%\n) if $DEBUG;
+
         # Add the IRRs for this series for future stats.
         push(@{$irr_buy_and_hold_ref},$irr_buy_and_hold);
         push(@{$irr_timing_ref},$irr_timing);
         my $diff_irr = $irr_timing - $irr_buy_and_hold;
         $beats_count++ if $diff_irr>0;
         
-        print qq(\nBuy and Hold for $start_date to $end_date: $irr_buy_and_hold\% (ABR: $buy_and_hold_rel\%)\nTiming strategy: $irr_timing\% (DIFF: $diff_irr\%)$timing_dates\n) if $is_print_series;
+        print qq(\nBuy and Hold for $start_date to $end_date: $irr_buy_and_hold\% (ABR: $buy_and_hold_rel\%)\nTiming strategy: $irr_timing\% (DIFF: $diff_irr\%, ABR: $sell_and_hold_rel\%)) if $is_print_series;
+        print qq($timing_dates\n) if $is_print_series && $is_print_series==2;
     }
 
     return ($beats_count);

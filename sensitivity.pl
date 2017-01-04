@@ -9,14 +9,14 @@ use warnings;
 my $strategy = 'sell_and_hold';
 
 # Strategy options -- see $strategy.pl for details.
-my $beg_YEARS = 5;
-my $end_YEARS = 50;
+my $beg_YEARS = 30;
+my $end_YEARS = 30;
 my $inc_YEARS = 5;
-my $beg_VALLEY_THRESHOLD = 1.05;
-my $end_VALLEY_THRESHOLD = 1.05;
+my $beg_VALLEY_THRESHOLD = 1.025;
+my $end_VALLEY_THRESHOLD = 1.075;
 my $inc_VALLEY_THRESHOLD = .025;
-my $beg_SELL_THRESHOLD = 0.80;
-my $end_SELL_THRESHOLD = 0.80;
+my $beg_SELL_THRESHOLD = 0.70;
+my $end_SELL_THRESHOLD = 0.96;
 my $inc_SELL_THRESHOLD = 0.05;
 
 for (my $tmp_YEARS = $beg_YEARS; $tmp_YEARS <= $end_YEARS; $tmp_YEARS+=$inc_YEARS) {

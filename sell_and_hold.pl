@@ -13,8 +13,9 @@ use Getopt::Long;
 
 # Turn to 1 to get DEBUG messages.
 # Add a starting series date to see more detail.
-my $DEBUG = 1;
-my $DEBUG_DATE = '1950-01-01';
+my $DEBUG = 0;
+my $DEBUG_DATE = '1986-06-01';
+#my $DEBUG_DATE = '1950-01-01';
 #my $DEBUG_DATE = '1871-01-01';
 #my $DEBUG_DATE = '1937-11-01';
 
@@ -28,10 +29,10 @@ my $VALLEY_THRESHOLD = 1.05;
 
 # Sell after this threshold off the peak,
 # e.g. 0.80 means sell after a 20% correction.
-my $SELL_THRESHOLD = 0.95;
+my $SELL_THRESHOLD = 0.80;
 
 # Whether to include capital gains (1) or not (0).
-my $is_capital_gains = 0;
+my $is_capital_gains = 1;
 
 # Whether to force a static capital gains rate of (x)% or not (0).
 my $is_capital_gains_rate = 0;
@@ -61,8 +62,8 @@ my $is_dividends_in_threshold = 0;
 my $is_start_in_market = 1;
 
 # Year we start at -- earliest is 1871.
-#my $year_start = 1871;
-my $year_start = 1950;
+my $year_start = 1871;
+#my $year_start = 1950;
 
 # Year we end at -- latest data is from 2016.
 my $year_end = 2017;

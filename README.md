@@ -1,6 +1,6 @@
 # Sell and Hold
 
-This repo is about analyzing the Sell and Hold market strategy, explained in detail at TBD. It is used to produce the analysis presented in that article.
+This repo is about analyzing the Sell and Hold market strategy, explained in detail at [The Sell and Hold Strategy](https://medium.com/@yegg/the-sell-and-hold-strategy-d7ad0ab16647). It is used to produce the analysis presented in that article.
 
 To execute the simulation, run:
 

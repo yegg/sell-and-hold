@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # This script tests a "Sell and Hold" strategy,
-# against a traditional "Buy and Hold strategy.
+# against a traditional "Buy and Hold" strategy.
 
 use strict;
 use warnings;
@@ -37,7 +37,7 @@ my $is_capital_gains = 1;
 # Whether to force a static capital gains rate of (x)% or not (0).
 my $is_capital_gains_rate = 0;
 
-# Whether to include transaciton costs (1) or not (0).
+# Whether to include transaction costs (1) or not (0).
 my $is_transaction_costs = 1;
 
 # Whether we base the calculation off of nominal (1),
@@ -91,8 +91,8 @@ my %series = calculate_earnings();
 # Internal rate of returns for each strategy.
 my @irr_buy_and_hold = ();
 my @irr_timing = ();
-my @timings = (); 
-my @timing_length = (); 
+my @timings = ();
+my @timing_length = ();
 my ($beats_count) = calculate_irr(\@irr_buy_and_hold, \@irr_timing, \@timings, \@timing_length);
 
 print qq(\nTotal series: ), scalar(@irr_timing), qq(\n);
@@ -122,7 +122,7 @@ sub calculate_irr {
 
         # For debugging a specific series.
         next SERIES if $series ne $DEBUG_DATE && $DEBUG;
-        
+
         # Beginning of series.
         my $start_date = $series;
 
@@ -173,16 +173,16 @@ sub calculate_irr {
         print qq(buy_and_hold_rel: $buy_and_hold_rel\%\n) if $DEBUG;
 
         # For printing out which dates we were in the market.
-        my $timing_dates = ''; 
+        my $timing_dates = '';
 
         # For calculating how much we deviated from buy and hold.
-        my $timing_end_adj = 0; 
+        my $timing_end_adj = 0;
 
         # How much we last exited the market at.
-        my $last_start_price = $start_price; 
+        my $last_start_price = $start_price;
 
         # Each time we entered the market in the timing strategy.
-      MARKET: for (my $i=1; $i<=$market_count; $i++) {
+        MARKET: for (my $i=1; $i<=$market_count; $i++) {
 
             # In market start and end dates and prices.
             my $timing_start_date = $series{$start_date}{'market'}{$i}{'start_date'};
@@ -203,12 +203,12 @@ sub calculate_irr {
                 print qq(timing_dividend: $timing_dividend\n);
             }
 
-            # Because we have windows where we are out of the market, 
+            # Because we have windows where we are out of the market,
             # the dollars we had when we started or last sold are different
             # from the current price, so we buy a number of "shares" in the market.
             my $shares = $last_start_price / $timing_start_price;
             print qq(shares: $shares\n) if $DEBUG;
-            
+
             # We then adjust the prices and dividends based on our share amount.
             my $timing_start_price_adj = $timing_start_price * $shares;
             my $timing_end_price_adj = $timing_end_price * $shares;
@@ -239,7 +239,7 @@ sub calculate_irr {
                 print qq(timing_end_amt: $timing_end_amt\n);
                 print qq(timing_end_capital_gains: $timing_end_capital_gains\n);
             }
-            
+
             # For this round in the market, we actually made
             # what we ended with minus what we started with.
             my $timing_adj = $timing_end_amt - $last_start_price - $timing_end_capital_gains;
@@ -279,13 +279,13 @@ sub calculate_irr {
             # with that amount next time.
             $last_start_price = $timing_end_amt;
         }
-        
+
         # The interest we made when out of the market.
         my $timing_interest = $is_interest ? $series{$start_date}{'interest'} : 0;
         print qq(timing_interest: $timing_interest\n) if $DEBUG;
         $timing_end_adj += $timing_interest;
-        
-        # The IRR of the timing stategy also starts with an outlay of the 
+
+        # The IRR of the timing stategy also starts with an outlay of the
         # the start price at the start date. At the end though we get
         # that back plus whatever we made while in the market.
         my $irr_timing = 0;
@@ -296,7 +296,7 @@ sub calculate_irr {
             );
             $irr_timing = xirr(%timing_cashflow, precision => 0.001) || 0;
             $irr_timing = sprintf("%0.2f",100*$irr_timing);
-        }        
+        }
 
         # Relative percentage gains for sell and hold session.
         my $sell_and_hold_rel = sprintf("%0.2f",100*(($start_price+$timing_end_adj-$start_price)/$start_price));
@@ -307,7 +307,7 @@ sub calculate_irr {
         push(@{$irr_timing_ref},$irr_timing);
         my $diff_irr = $irr_timing - $irr_buy_and_hold;
         $beats_count++ if $diff_irr>0;
-        
+
         print qq(\nBuy and Hold for $start_date to $end_date: $irr_buy_and_hold\% (ABR: $buy_and_hold_rel\%)\nTiming strategy: $irr_timing\% (DIFF: $diff_irr\%, ABR: $sell_and_hold_rel\%)) if $is_print_series;
         print qq($timing_dates\n) if $is_print_series && $is_print_series==2;
     }
@@ -324,7 +324,7 @@ sub calculate_earnings {
         my $interest = shift(@s_and_p_series);
         my $dividend = shift(@s_and_p_series);
         my $price_adj = $price;
-        
+
         # Update existing series.
         foreach my $starting_date (keys %series) {
 
@@ -372,7 +372,7 @@ sub calculate_earnings {
                 print qq(months: ), $series{$starting_date}{'months'}, qq(\n);
                 print qq(in_market: $in_market\n);
                 print qq(market_count: $market_count\n);
-                
+
                 if ($in_market) {
                     print qq(peak: ), $series{$starting_date}{'market'}{$market_count}{'peak'}, qq(\n);
                     print qq(start_price: ), $series{$starting_date}{'market'}{$market_count}{'start_price'}, qq(\n);
@@ -390,25 +390,25 @@ sub calculate_earnings {
             # When to jump in the market.
             if (!$in_market) {
 
-                # The current price relative to the last valley is above our threhsold.
+                # The current price relative to the last valley is above our threshold.
                 if ($price_adj/$series{$starting_date}{'valley'} > $VALLEY_THRESHOLD) {
 
                     if ($DEBUG && $starting_date eq $DEBUG_DATE) {
                         print qq(\n\n\n\nJUMPING INTO MARKET ON $date\n\n\n\n);
                     }
-                    
+
                     # Mark that we're now in the market.
                     $series{$starting_date}{'in_market'} = 1;
                     $in_market = 1;
-                    
+
                     # Increment the in-market counter and update our index variable.
                     $series{$starting_date}{'market_count'}++;
                     $market_count = $series{$starting_date}{'market_count'};
-                    
+
                     # Reset the peak & valley to the current price.
                     $series{$starting_date}{'valley'} = $price_adj;
                     $series{$starting_date}{'peak'} = $price_adj;
-                    
+
                     # Initilize in-market variables.
                     $series{$starting_date}{'market'}{$market_count}{'peak'} = $price_adj;
                     $series{$starting_date}{'market'}{$market_count}{'start_price'} = $price;
@@ -440,7 +440,7 @@ sub calculate_earnings {
                     $series{$starting_date}{'peak'} = $price_adj;
                     $series{$starting_date}{'dividend_out'} = 0 if $is_dividends_in_threshold;
                 }
-            }                
+            }
 
             # If we reached the end of our time window.
             if ($series{$starting_date}{'months'}==$MONTHS) {
@@ -471,7 +471,7 @@ sub calculate_earnings {
             # Record in-market dividends.
             $series{$starting_date}{'market'}{$market_count}{'dividend'}+=$dividend if $in_market;
         }
-        
+
         # Add new series.
         $series{$date} = ();
         $series{$date}{'months'} = 1;
@@ -490,16 +490,16 @@ sub calculate_earnings {
             # Increment the in-market counter and update our index variable.
             $series{$date}{'market_count'}++;
             my $market_count = $series{$date}{'market_count'};
-            
+
             # Set the valley to the current price.
             $series{$date}{'valley'} = $price;
-            
+
             # Initilize in-market variables.
             $series{$date}{'market'}{$market_count}{'peak'} = $price_adj;
             $series{$date}{'market'}{$market_count}{'start_price'} = $price;
             $series{$date}{'market'}{$market_count}{'start_date'} = $date;
             $series{$date}{'market'}{$market_count}{'dividend'} = $dividend;
-            
+
         } else {
             $series{$date}{'in_market'} = 0;
             $series{$date}{'market_count'} = 0;
@@ -540,7 +540,7 @@ sub get_s_and_p_series {
         }
 
         next LINE if !$date || !$price || !$dividend;
-        
+
         # Reduce dividends by the dividend tax.
         my ($year) = $date =~ /^(\d+)\-/;
         $dividend -= calculate_dividend_tax($year,$dividend) if $is_capital_gains && $dividend>0;
@@ -568,12 +568,12 @@ sub get_s_and_p_series {
             my $year = $line[0];
             my $long_term = $line[1]/100;
             my $short_term = $line[2]/100;
-            
+
             $capital_gains_rates{$year}{'long_term'} = $long_term;
             $capital_gains_rates{$year}{'short_term'} = $short_term;
         }
         close(IN);
-    }        
+    }
 
     sub calculate_capital_gains_tax {
         my ($start_date, $end_date, $gain) = @_;
@@ -593,7 +593,7 @@ sub get_s_and_p_series {
 
             # If holding period is greater than 365 days, use long term rate.
             $is_long_term = 1 if $Dd>365;
-            $year_gain = $eyear; 
+            $year_gain = $eyear;
             print qq(year_gain: $year_gain\n) if $DEBUG;
         }
 
@@ -624,11 +624,11 @@ sub get_s_and_p_series {
             my @line = split(/,/,$line);
             my $year = $line[0];
             my $rate = $line[1]/100;
-            
+
             $dividend_tax_rates{$year} = $rate
         }
         close(DIV);
-    }        
+    }
 
     sub calculate_dividend_tax {
         my ($year, $gain) = @_;
@@ -665,11 +665,11 @@ sub get_s_and_p_series {
             my @line = split(/,/,$line);
             my $year = $line[0];
             my $rate = $line[1]/100;
-            
+
             $transaction_cost_rates{$year} = $rate
         }
         close(DIV);
-    }        
+    }
 
     sub calculate_transaction_cost {
         my ($date, $amt) = @_;

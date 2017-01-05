@@ -4,14 +4,14 @@ This repo is about analyzing the Sell and Hold market strategy, explained in det
 
 To execute the simulation, run:
 
-`perl
+```perl
 perl sell_and_hold.pl
-`
+```
 
 Simulation (and strategy) parameters are defined and explained at the top of that file. In addition, it can take some command line arguments which are currently used by sensitivity.pl to assist with quicker sensitivity analysis. To see an example of that, run:
 
-`perl
+```perl
 perl sensitivity.pl
-`
+```
 
 The data that the simulation draws on lives in data/. Enjoy! Pull requests are welcome.

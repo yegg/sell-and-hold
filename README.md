@@ -14,4 +14,6 @@ Simulation (and strategy) parameters are defined and explained at the top of tha
 perl sensitivity.pl
 ```
 
+**Note:** The Perl script depends on the `Finance::Math::IRR` and `Statistics::Lite` modules. Read the [CPAN documentation](http://www.cpan.org/modules/INSTALL.html) for how to install Perl modules.
+
 The data that the simulation draws on lives in data/. Enjoy! Pull requests are welcome.
